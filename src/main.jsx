@@ -7,6 +7,10 @@ import Home from './views/Home.jsx';
 import App from './App.jsx';
 import Server_con_cola from './views/Server_con_cola.jsx';
 import Server_sin_cola from './views/Server_sin_cola.jsx';
+import Manual from './views/Manual.jsx';
+import AsistenteVirtual from './views/AsistenteVirtual.jsx';
+import Server_con_cola_av from './views/Sever_con_cola_av.jsx';
+import Server_sin_cola_av from './views/Server_sin_cola_av.jsx';
 
 const router = createBrowserRouter([
   {
@@ -18,12 +22,32 @@ const router = createBrowserRouter([
         element: <Home />,
       },
       {
-        path: "serversincola",
-        element: <Server_sin_cola />,
+        path: "manual", 
+        element: <Manual />,
+        children: [ 
+          {
+            path: "serversincola", 
+            element: <Server_sin_cola />,
+          },
+          {
+            path: "serverconcola", 
+            element: <Server_con_cola />,
+          }
+        ],
       },
       {
-        path: "serverconcola",
-        element: <Server_con_cola />,
+        path: "asistentevirtual",
+        element: <AsistenteVirtual />,
+        children: [ 
+          {
+            path: "serversincola", 
+            element: <Server_sin_cola_av />,
+          },
+          {
+            path: "serverconcola", 
+            element: <Server_con_cola_av />,
+          }
+        ],
       }
     ],
 
