@@ -12,7 +12,7 @@ const calculators = [
     }, 
     { 
         name: 'Asistente Virtual', 
-        path: 'serverconcola', 
+        path: 'asistentevirtual', 
         description: 'Un asistente de IA te guiará con preguntas sencillas para determinar el modelo adecuado.', 
         icon: '🤖'
     },

@@ -9,6 +9,7 @@ import App from './App.jsx';
 import Server_con_cola from './views/Server_con_cola.jsx';
 import Server_sin_cola from './views/Server_sin_cola.jsx';
 import Manual from './views/Manual.jsx';
+import AsistenteVirtual from './views/AsistenteVirtual.jsx';
 
 const router = createBrowserRouter([
   {
@@ -32,6 +33,10 @@ const router = createBrowserRouter([
             element: <Server_con_cola />,
           }
         ],
+      },
+      {
+        path: "asistentevirtual",
+        element: <AsistenteVirtual />,
       },
       {
         path: "serversincola",
