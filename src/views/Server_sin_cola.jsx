@@ -137,9 +137,18 @@ return (
                 </tbody>
             </table>
             </div>
+            
+            {/* Botón para Imprimir Resultados */}
+            <div className="text-right mt-4">
+                <button onClick className="bg-blue-700 hover:bg-blue-900 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300">
+                Imprimir Resultados
+                </button>
+            </div>
         </div>
         </div>
     )}
+
+            
 
     {/* Botón para volver */}
     <div className="text-center mt-8">
