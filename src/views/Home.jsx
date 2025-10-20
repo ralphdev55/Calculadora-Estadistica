@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import Footer from '../components/Footer';  
 
 const calculators = [
     { 
@@ -77,6 +78,7 @@ return (
         </div>
         ))}
     </div>
+    <Footer />
     </div>
 );
 }
