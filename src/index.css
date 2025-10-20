@@ -1,3 +1,23 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* 🚨 BLOQUE DE IMPRESIÓN AÑADIDO PARA LA PAGINACIÓN 🚨 */
+@media print {
+    /* 1. Resetear la altura y deshabilitar scroll en el documento principal */
+    body, html, #root {
+        height: auto !important; /* Esencial para permitir el flujo a múltiples páginas */
+        overflow: visible !important; /* Elimina cualquier scroll forzado */
+    }
+
+    /* 2. Asegurar que ningún contenedor tenga scroll visible, especialmente el de la tabla */
+    .overflow-x-auto {
+        /* Deshabilita el scroll horizontal en modo impresión */
+        overflow-x: visible !important;
+    }
+
+    /* 3. Asegurar que las imágenes/contenedores largos no se corten si no tienen la clase break-inside-avoid */
+    * {
+        overflow: visible !important;
+    }
+}
