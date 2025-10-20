@@ -7,7 +7,7 @@ const handlePrint = () => {
     window.print();
 };
 
-function Server_sin_cola() {
+function Server_sin_cola_av() {
 
     const [inputs, setInputs] = useState({ lambda: '', mu: '', k: '' });
     const [results, setResults] = useState(null); 
@@ -187,4 +187,4 @@ function Server_sin_cola() {
     );
 }
 
-export default Server_sin_cola;
+export default Server_sin_cola_av;
