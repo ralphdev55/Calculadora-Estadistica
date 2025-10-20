@@ -3,8 +3,18 @@ import { Link } from 'react-router-dom';
 import { useState } from 'react';
 
 const calculators = [
-    { name: 'Cálculo Manual', path: 'serversincola', description: 'Introduce directamente los parámetros de tu sistema. Selecciona y calcula modelos de líneas de espera M/M/1 (sin límite) o M/M/K (con límite de cola) según tus necesidades.' }, 
-    { name: 'Asistente Virtual', path: 'serverconcola', description: 'Un asistente virtual te guiará con preguntas sencillas para determinar tus parámetros y seleccionar el modelo M/M/1 (sin límite) o M/M/K (con límite de cola) adecuado.' },
+    { 
+        name: 'Cálculo Manual', 
+        path: 'serversincola', 
+        description: 'Introduce directamente los parámetros de tu sistema. Modelo M/M/1 y M/M/K.',
+        icon: '🔢' 
+    }, 
+    { 
+        name: 'Asistente Virtual', 
+        path: 'serverconcola', 
+        description: 'Un asistente de IA te guiará con preguntas sencillas para determinar el modelo adecuado.', 
+        icon: '🤖'
+    },
 ];
 
 function Home() {
@@ -24,9 +34,9 @@ return (
         </p>
     </div>
 
-        {/* Contenedor de los botones - Mantenemos el tamaño grande */}
+    {/* Contenedor de los botones - Mantenemos el tamaño y el grid */}
     <div className="grid grid-cols-2 gap-8 w-full max-w-2xl mx-auto"> 
-        {calculators.map((calc, index) => ( // 👈 Agregamos el índice
+        {calculators.map((calc, index) => (
         <div 
             key={calc.name} 
             className="relative w-full" 
@@ -37,29 +47,31 @@ return (
             to={calc.path} 
             className="group block w-full bg-gray-800 p-14 rounded-lg border border-gray-700 shadow-xl hover:border-blue-500 hover:bg-gray-700/50 transition-all duration-200 text-center"
             >
-                <h3 className="font-extrabold text-gray-100 group-hover:text-white transition-colors text-2xl"> 
+                <h3 className="font-extrabold text-gray-100 group-hover:text-white transition-colors text-2xl 
+                            flex flex-col items-center justify-center gap-2"> 
+                    
+                    <span className="text-5xl mb-2">{calc.icon}</span> 
+                    
                     {calc.name}
                 </h3>
             </Link>
 
-            {/* Tooltip flotante */}
             {activeTooltip === calc.name && ( 
             <div className={`absolute top-1/2 -translate-y-1/2 
                                     bg-blue-800/90 backdrop-blur-sm text-white text-base 
                                     p-4 rounded-lg shadow-2xl border border-blue-700 
-                                    w-80 z-50 animate-fade-in-up ${index === 0 // 👈 CLAVE: CONDICIÓN DE POSICIONAMIENTO
+                                    w-80 z-50 animate-fade-in-up ${index === 0 
                 ? 'right-full mr-4 origin-right' 
                 : 'left-full ml-4 origin-left'}`}> 
                 
                 {calc.description}
                 
-                {/* Flecha del tooltip - También es condicional */}
                 <div className={`absolute top-1/2 -translate-y-1/2 w-0 h-0 
                                         border-t-8 border-t-transparent 
                                         border-b-8 border-b-transparent 
-                                        ${index === 0 // 👈 CLAVE: CONDICIÓN DE LA FLECHA
-                    ? 'right-[-8px] border-l-8 border-l-blue-800/90' // Apunta a la izquierda
-                    : 'left-[-8px] border-r-8 border-r-blue-800/90'}`}></div> // Apunta a la derecha
+                                        ${index === 0 
+                    ? 'right-[-8px] border-l-8 border-l-blue-800/90' 
+                    : 'left-[-8px] border-r-8 border-r-blue-800/90'}`}></div>
             </div>
             )}
         </div>
