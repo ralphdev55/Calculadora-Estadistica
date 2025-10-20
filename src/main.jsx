@@ -4,8 +4,8 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 import './index.css';
 
+import Home from './views/Home.jsx';
 import App from './App.jsx';
-import Home from './views/home.jsx';
 import Server_con_cola from './views/Server_con_cola.jsx';
 import Server_sin_cola from './views/Server_sin_cola.jsx';
 
