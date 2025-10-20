@@ -24,9 +24,9 @@ return (
         </p>
     </div>
 
-    {/* Contenedor de los botones - AUMENTADO el ancho máximo a 'max-w-xl' (Extra Grande) */}
+        {/* Contenedor de los botones - Mantenemos el tamaño grande */}
     <div className="grid grid-cols-2 gap-8 w-full max-w-2xl mx-auto"> 
-        {calculators.map((calc) => (
+        {calculators.map((calc, index) => ( // 👈 Agregamos el índice
         <div 
             key={calc.name} 
             className="relative w-full" 
@@ -35,27 +35,31 @@ return (
         >
             <Link 
             to={calc.path} 
-            // CAMBIO CLAVE: Aumentamos el padding a p-8 (muy grande)
             className="group block w-full bg-gray-800 p-14 rounded-lg border border-gray-700 shadow-xl hover:border-blue-500 hover:bg-gray-700/50 transition-all duration-200 text-center"
             >
-            {/* CAMBIO CLAVE: Aumentamos el tamaño del texto a text-2xl (Máximo impacto) */}
-            <h3 className="font-extrabold text-gray-100 group-hover:text-white transition-colors text-2xl"> 
-                {calc.name}
-            </h3>
+                <h3 className="font-extrabold text-gray-100 group-hover:text-white transition-colors text-2xl"> 
+                    {calc.name}
+                </h3>
             </Link>
 
-            {/* Tooltip flotante - Mantenemos la estructura para el tooltip */}
+            {/* Tooltip flotante */}
             {activeTooltip === calc.name && ( 
-            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 
+            <div className={`absolute top-1/2 -translate-y-1/2 
                                     bg-blue-800/90 backdrop-blur-sm text-white text-base 
                                     p-4 rounded-lg shadow-2xl border border-blue-700 
-                                    w-80 z-50 animate-fade-in-up origin-left"> 
+                                    w-80 z-50 animate-fade-in-up ${index === 0 // 👈 CLAVE: CONDICIÓN DE POSICIONAMIENTO
+                ? 'right-full mr-4 origin-right' 
+                : 'left-full ml-4 origin-left'}`}> 
+                
                 {calc.description}
-                {/* Flecha del tooltip */}
-                <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-0 h-0 
+                
+                {/* Flecha del tooltip - También es condicional */}
+                <div className={`absolute top-1/2 -translate-y-1/2 w-0 h-0 
                                         border-t-8 border-t-transparent 
                                         border-b-8 border-b-transparent 
-                                        border-r-8 border-r-blue-800/90"></div>
+                                        ${index === 0 // 👈 CLAVE: CONDICIÓN DE LA FLECHA
+                    ? 'right-[-8px] border-l-8 border-l-blue-800/90' // Apunta a la izquierda
+                    : 'left-[-8px] border-r-8 border-r-blue-800/90'}`}></div> // Apunta a la derecha
             </div>
             )}
         </div>
