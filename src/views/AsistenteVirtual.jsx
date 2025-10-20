@@ -32,7 +32,7 @@ function AsistenteVirtual() {
                         Asistente Virtual 🤖
                         </h1>
                         <p className="text-lg text-gray-400">
-                        Un asistente de IA te guiará con preguntas sencillas <br></br>para determinar el modelo adecuado
+                        Un asistente virtual te guiará con preguntas sencillas <br></br>para determinar el modelo adecuado
                         </p>
                     </div>
 
