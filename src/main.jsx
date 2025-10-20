@@ -37,14 +37,6 @@ const router = createBrowserRouter([
       {
         path: "asistentevirtual",
         element: <AsistenteVirtual />,
-      },
-      {
-        path: "serversincola",
-        element: <Server_sin_cola />,
-      },
-      {
-        path: "serverconcola",
-        element: <Server_con_cola />,
       }
     ],
 
