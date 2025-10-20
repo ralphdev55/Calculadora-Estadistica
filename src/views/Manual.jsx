@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import Footer from '../components/Footer';  
 
 const calculators = [
     { name: 'Líneas de espera de un servidor sin límite de cola', path: 'serversincola', description: 'Un servidor, sin límite de cola.' }, 
@@ -17,10 +18,10 @@ return (
     {/* Sección de Encabezado */}
     <div className="text-center mb-10"> {/* Reduje el margen inferior */}
         <h1 className="text-4xl md:text-5xl font-extrabold mb-3 text-white">
-        Calculadora de Procesos
+        Cálculo Manual 🔢
         </h1>
         <p className="text-lg text-gray-400">
-        Selecciona una herramienta para comenzar tu análisis.
+        Introduce directamente los parámetros de tu sistema. <br></br>Modelo M/M/1 y M/M/K.
         </p>
     </div>
 
@@ -60,6 +61,7 @@ return (
         </div>
         ))}
     </div>
+    <Footer />
     </div>
 );
 }

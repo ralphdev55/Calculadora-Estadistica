@@ -22,6 +22,16 @@ const router = createBrowserRouter([
       {
         path: "manual", 
         element: <Manual />,
+        children: [ 
+          {
+            path: "serversincola", 
+            element: <Server_sin_cola />,
+          },
+          {
+            path: "serverconcola", 
+            element: <Server_con_cola />,
+          }
+        ],
       },
       {
         path: "serversincola",
