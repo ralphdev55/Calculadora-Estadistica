@@ -2,7 +2,7 @@ import React from 'react';
 // 👈 Importa Outlet y useLocation
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useState } from 'react';
-import Footer from '../components/Footer';  
+
 
 const calculators = [
     { name: 'Líneas de espera de un servidor sin límite de cola', path: 'serversincola', description: 'Un servidor, sin límite de cola.' }, 
@@ -72,7 +72,7 @@ function AsistenteVirtual() {
                         </div>
                         ))}
                     </div>
-                    <Footer />
+                    
                 </>
             ) : null}
             
