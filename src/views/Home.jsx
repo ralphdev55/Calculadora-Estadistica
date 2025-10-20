@@ -6,7 +6,7 @@ import Footer from '../components/Footer';
 const calculators = [
     { 
         name: 'Cálculo Manual', 
-        path: 'serversincola', 
+        path: 'manual', 
         description: 'Introduce directamente los parámetros de tu sistema. Modelo M/M/1 y M/M/K.',
         icon: '🔢' 
     }, 

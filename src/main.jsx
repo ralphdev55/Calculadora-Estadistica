@@ -8,6 +8,7 @@ import Home from './views/Home.jsx';
 import App from './App.jsx';
 import Server_con_cola from './views/Server_con_cola.jsx';
 import Server_sin_cola from './views/Server_sin_cola.jsx';
+import Manual from './views/Manual.jsx';
 
 const router = createBrowserRouter([
   {
@@ -17,6 +18,10 @@ const router = createBrowserRouter([
       {
         index: true,
         element: <Home />,
+      },
+      {
+        path: "manual", 
+        element: <Manual />,
       },
       {
         path: "serversincola",
