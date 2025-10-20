@@ -1,10 +1,21 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
+import Footer from '../components/Footer';  
 
 const calculators = [
-    { name: 'Líneas de espera de un servidor sin límite de cola', path: 'serversincola', description: 'Un servidor, sin límite de cola.' }, 
-    { name: 'Líneas de espera de un servidor con límite de cola', path: 'serverconcola', description: 'Un servidor, con límite de cola.' },
+    { 
+        name: 'Cálculo Manual', 
+        path: 'manual', 
+        description: 'Introduce directamente los parámetros de tu sistema. Modelo M/M/1 y M/M/K.',
+        icon: '🔢' 
+    }, 
+    { 
+        name: 'Asistente Virtual', 
+        path: 'asistentevirtual', 
+        description: 'Un asistente virtual te guiará con preguntas sencillas para determinar el modelo adecuado.', 
+        icon: '🤖'
+    },
 ];
 
 function Home() {
@@ -24,42 +35,50 @@ return (
         </p>
     </div>
 
-    {/* Contenedor de los botones */}
-    <div className="flex flex-col items-center gap-4 w-full max-w-lg"> {/* Aumenté el gap */}
-        {calculators.map((calc) => (
-        // Cada Link ahora es un contenedor para el botón y su tooltip
+    {/* Contenedor de los botones - Mantenemos el tamaño y el grid */}
+    <div className="grid grid-cols-2 gap-8 w-full max-w-2xl mx-auto"> 
+        {calculators.map((calc, index) => (
         <div 
             key={calc.name} 
-            className="relative w-full" // Establece el contexto para el posicionamiento absoluto del tooltip
-            onMouseEnter={() => setActiveTooltip(calc.name)} // Guarda el nombre de la calc. activa
-            onMouseLeave={() => setActiveTooltip(null)} // Limpia el estado cuando el mouse sale
+            className="relative w-full" 
+            onMouseEnter={() => setActiveTooltip(calc.name)} 
+            onMouseLeave={() => setActiveTooltip(null)} 
         >
             <Link 
             to={calc.path} 
-            className="group block w-full bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-md hover:border-blue-500 hover:bg-gray-700/50 transition-all duration-200 text-center"
+            className="group block w-full bg-gray-800 p-14 rounded-lg border border-gray-700 shadow-xl hover:border-blue-500 hover:bg-gray-700/50 transition-all duration-200 text-center"
             >
-            <h3 className="font-semibold text-gray-100 group-hover:text-white transition-colors">
-                {calc.name}
-            </h3>
+                <h3 className="font-extrabold text-gray-100 group-hover:text-white transition-colors text-2xl 
+                            flex flex-col items-center justify-center gap-2"> 
+                    
+                    <span className="text-5xl mb-2">{calc.icon}</span> 
+                    
+                    {calc.name}
+                </h3>
             </Link>
 
-            {/* Tooltip flotante */}
-            {activeTooltip === calc.name && ( // Solo se muestra si este botón es el activo
-            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 
-                            bg-blue-800/90 backdrop-blur-sm text-white text-sm 
-                            p-3 rounded-lg shadow-xl border border-blue-700 
-                            w-72 z-50 animate-fade-in-up origin-left"> {/* Clases de animación y ancho */}
+            {activeTooltip === calc.name && ( 
+            <div className={`absolute top-1/2 -translate-y-1/2 
+                                    bg-blue-800/90 backdrop-blur-sm text-white text-base 
+                                    p-4 rounded-lg shadow-2xl border border-blue-700 
+                                    w-80 z-50 animate-fade-in-up ${index === 0 
+                ? 'right-full mr-4 origin-right' 
+                : 'left-full ml-4 origin-left'}`}> 
+                
                 {calc.description}
-                {/* Flecha del tooltip */}
-                <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-0 h-0 
-                                border-t-8 border-t-transparent 
-                                border-b-8 border-b-transparent 
-                                border-r-8 border-r-blue-800/90"></div>
+                
+                <div className={`absolute top-1/2 -translate-y-1/2 w-0 h-0 
+                                        border-t-8 border-t-transparent 
+                                        border-b-8 border-b-transparent 
+                                        ${index === 0 
+                    ? 'right-[-8px] border-l-8 border-l-blue-800/90' 
+                    : 'left-[-8px] border-r-8 border-r-blue-800/90'}`}></div>
             </div>
             )}
         </div>
         ))}
     </div>
+    <Footer />
     </div>
 );
 }
