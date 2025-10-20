@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client';
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 import './index.css';
-
 import Home from './views/Home.jsx';
 import App from './App.jsx';
 import Server_con_cola from './views/Server_con_cola.jsx';
