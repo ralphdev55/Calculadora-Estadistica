@@ -96,7 +96,7 @@ function Server_sin_cola() {
 
     // --- RENDERIZADO PRINCIPAL DEL COMPONENTE ---
     return (
-        <div className="max-w-6xl mx-auto text-white print:text-black print:bg-white sm:p-6 lg:p-8 font-sans"> // eliminado p-4 generaba error en la responsividad
+        <div className="max-w-6xl mx-auto text-white print:text-black print:bg-white sm:p-6 lg:p-8 font-sans">
         
             
             <div className="flex flex-col md:flex-row gap-8">
