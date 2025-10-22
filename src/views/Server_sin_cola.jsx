@@ -134,7 +134,7 @@ function Server_sin_cola() {
                         <div className="hidden print:block mb-6">
                             <h1 className="text-3xl font-bold mb-2 text-center text-black">Reporte de Resultados - M/M/1</h1>
                             <p className="text-center text-gray-600 mb-4">
-                                Parámetros: $\lambda$ = {results.lambda} | $\mu$ = {results.mu}
+                                Parámetros: λ = {results.lambda} | μ = {results.mu}
                             </p>
                         </div>
                     )}

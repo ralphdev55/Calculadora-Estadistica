@@ -135,7 +135,7 @@ function Server_con_cola_av() {
                                 Reporte de Resultados - M/M/1/K
                             </h1>
                             <p className="text-center text-gray-600 mb-4">
-                                Parámetros: $\lambda$ = {results.lambda} | $\mu$ = {results.mu} | Capacidad (K) = {results.k}
+                                Parámetros: λ = {results.lambda} | μ = {results.mu} | Capacidad (K) = {results.k}
                             </p>
                         </div>
                     )}
