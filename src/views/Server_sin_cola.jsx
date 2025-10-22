@@ -213,7 +213,7 @@ function Server_sin_cola() {
                                     <table className="w-full text-left print:border-collapse text-sm">
                                         <thead className="bg-gray-700/50 print:bg-gray-300 print:text-black sticky top-0 z-10"> {/* Header pegajoso */}
                                             <tr>
-                                                <th className="p-3 rounded-tl-lg print:border print:border-gray-500">Clientes (n)</th>
+                                                <th className="p-3 rounded-tl-lg print:border print:border-gray-500">Clientes (n).</th>
                                                 <th className="p-3 print:border print:border-gray-500">Probabilidad (Pn)</th>
                                                 <th className="p-3 rounded-tr-lg print:border print:border-gray-500">Prob. Acumulada (Fn)</th>
                                             </tr>
