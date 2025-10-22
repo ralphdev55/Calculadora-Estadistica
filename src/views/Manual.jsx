@@ -5,8 +5,8 @@ import { useState } from 'react';
 
 
 const calculators = [
-    { name: 'Líneas de espera de un servidor sin límite de cola', path: 'serversincola', description: 'Un servidor, sin límite de cola.' }, 
-    { name: 'Líneas de espera de un servidor con límite de cola', path: 'serverconcola', description: 'Un servidor, con límite de cola.' },
+    { name: 'Líneas de espera de un servidor sin límite de cola', path: 'serversincola', description: 'Modela y calcula métricas de un sistema con un solo servidor donde la cola es de capacidad infinita' }, 
+    { name: 'Líneas de espera de un servidor con límite de cola', path: 'serverconcola', description: 'Modela y calcula métricas de un sistema con un solo servidor donde la cola tiene una capacidad máxima finita.' },
 ];
 
 function Manual() {
