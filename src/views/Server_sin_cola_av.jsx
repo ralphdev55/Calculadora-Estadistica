@@ -537,17 +537,24 @@ function Server_sin_cola_av() {
                 </div>
             </div>
 
-            {/* Botón de Imprimir que solo aparece si hay resultados (se oculta al imprimir) */}
-            {results && (
-                 <div className="flex justify-end items-center mt-8 print:hidden">
-                    <button 
-                        onClick={handlePrint} 
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300"
-                    >
-                        Imprimir Resultados 🖨️
-                    </button>
-                </div>
-            )}
+            {/* --- BOTONES INFERIORES (OCULTAR EN IMPRESIÓN) --- */}
+                        <div className="flex justify-between items-center mt-8 print:hidden">
+                            <Link 
+                                to="/" 
+                                className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300"
+                            >
+                                &larr; Volver al menú
+                            </Link>
+                            
+                            {results && (
+                                <button 
+                                    onClick={handlePrint} 
+                                    className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300"
+                                >
+                                    Imprimir Resultados 🖨️
+                                </button>
+                            )}
+                        </div>
 
             {/* Toast de felicitación de Calculon (esquina superior derecha) */}
             {showCongrats && (
