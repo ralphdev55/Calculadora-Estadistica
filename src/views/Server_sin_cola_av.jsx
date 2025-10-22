@@ -531,7 +531,7 @@ function Server_sin_cola_av() {
                         </div>
                     ) : (
                         <div className="flex items-center justify-center h-full bg-gray-800 p-10 rounded-xl shadow-2xl border border-gray-700 text-center">
-                            <p className="text-gray-400 text-lg">Ingresa los datos en el formulario para calcular y ver las métricas del sistema.</p>
+                            <p className="text-gray-400 text-lg">Ingresa los datos en el formulario para calcular y ver las métricas del sistema M/M/1.</p>
                         </div>
                     )}
                 </div>
