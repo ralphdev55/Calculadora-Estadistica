@@ -9,7 +9,6 @@ const handlePrint = () => {
 
 function Server_sin_cola() {
 
-
     // --- ESTADOS ---
     // Almacena los valores de entrada del usuario (lambda y mu)
     const [inputs, setInputs] = useState({ lambda: '', mu: '' });
@@ -61,16 +60,31 @@ function Server_sin_cola() {
         const Wq = lambda / (mu * (mu - lambda)); // Tiempo promedio de un cliente en la cola
         const P0 = 1 - rho; // Probabilidad de que no haya clientes en el sistema
 
-        // Genera los datos para la tabla de distribución de probabilidad
+        // --- Generación de la Tabla de Probabilidad (Lógica Dinámica) ---
         const probabilityTable = [];
-        // Se define un límite fijo para la tabla, ya que el input 'k' se ha eliminado
-        const maxNForTable = 20;
-        for (let n = 0; n <= maxNForTable; n++) {
+        let n = 0;
+        // Nuevo límite de probabilidad individual: 9e-6 (9 * 10^-6)
+        const MIN_PROBABILITY = 0.000009; 
+        // Límite para la probabilidad acumulada (muy cercano a 1)
+        const MAX_CUMULATIVE_PROB = 0.999999;
+        // Límite de seguridad para evitar bucles infinitos en casos extremos
+        const SAFETY_MAX_ITERATIONS = 1000; 
+
+        while (n <= SAFETY_MAX_ITERATIONS) { 
             const Pn = (1 - rho) * Math.pow(rho, n); // Probabilidad de tener 'n' clientes en el sistema
             const Fn = 1 - Math.pow(rho, n + 1);    // Probabilidad acumulada (tener 'n' o menos clientes)
+            
             probabilityTable.push({ n, Pn, Fn });
-        }
 
+            // Condiciones de parada basadas en tu solicitud:
+            // 1. Pn es muy pequeña (después de n=0)
+            // 2. Fn es casi 1
+            if (n > 0 && (Pn < MIN_PROBABILITY || Fn > MAX_CUMULATIVE_PROB)) {
+                break; // Detener el bucle
+            }
+            n++;
+        }
+        
         // Almacena todos los resultados en el estado para que se muestren en la UI
         setResults({
             lambda: lambda,
@@ -96,8 +110,7 @@ function Server_sin_cola() {
 
     // --- RENDERIZADO PRINCIPAL DEL COMPONENTE ---
     return (
-        <div className="max-w-6xl mx-auto text-white print:text-black print:bg-white sm:p-6 lg:p-8 font-sans">
-        
+        <div className="max-w-6xl mx-auto text-white print:text-black print:bg-white p-4 sm:p-6 lg:p-8 font-sans">
             
             <div className="flex flex-col md:flex-row gap-8">
 
@@ -141,7 +154,7 @@ function Server_sin_cola() {
 
                     {/* Muestra los resultados o un mensaje inicial */}
                     {results ? (
-                        <div className="space-y-full">
+                        <div className="space-y-8">
                             
                             {/* Sección de Métricas de Rendimiento */}
                             <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 print:bg-white print:p-0 print:shadow-none print:border-none">
@@ -172,8 +185,8 @@ function Server_sin_cola() {
                                             {results.probabilityTable.map((row) => (
                                                 <tr key={row.n} className="border-b border-gray-700 last:border-b-0 hover:bg-gray-700/30 print:border-gray-400">
                                                     <td className="p-3 print:border print:border-gray-400">{row.n}</td>
-                                                    <td className="p-3 print:border print:border-gray-400">{row.Pn.toFixed(5)}</td>
-                                                    <td className="p-3 print:border print:border-gray-400">{row.Fn.toFixed(5)}</td>
+                                                    <td className="p-3 print:border print:border-gray-400">{row.Pn.toFixed(6)}</td>
+                                                    <td className="p-3 print:border print:border-gray-400">{row.Fn.toFixed(6)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
