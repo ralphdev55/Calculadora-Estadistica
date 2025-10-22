@@ -115,13 +115,92 @@ function Server_con_cola_av() {
     };
 
     // Componente reutilizable para las tarjetas de métricas (ESTILO REDISEÑADO)
-    const MetricCard = ({ label, value }) => (
+    const MetricCard = ({ label, value, highlight }) => (
         // Nuevo estilo de tarjeta, más claro y compacto con acento en verde esmeralda
-        <div className="bg-gray-800/70 p-3 rounded-lg text-center print:bg-gray-200 print:text-black print:border print:border-gray-400 **break-inside-avoid**">
-            <p className="text-xs text-gray-400 print:text-gray-600 font-medium">{label}</p>
-            <p className="text-xl font-bold text-emerald-400 print:text-emerald-700 mt-1">{value}</p>
+        <div className={`p-3 rounded-lg text-center print:bg-gray-200 print:text-black print:border print:border-gray-400 ${highlight ? 'bg-emerald-700/30 ring-2 ring-emerald-400' : 'bg-gray-800/70'}`}>
+            <p className={`text-xs ${highlight ? 'text-white' : 'text-gray-400'} print:text-gray-600 font-medium`}>{label}</p>
+            <p className={`text-xl font-bold ${highlight ? 'text-white' : 'text-emerald-400'} print:text-emerald-700 mt-1`}>{value}</p>
         </div>
     );
+
+    // --- GUÍA DE INTERPRETACIÓN ---
+    const [showGuide, setShowGuide] = useState(false);
+    const [guideStep, setGuideStep] = useState(0);
+    const [originalResults, setOriginalResults] = useState(null);
+    const [simulated, setSimulated] = useState(false);
+
+    const guideSteps = [
+        { key: 'rho', title: 'Utilización (ρ)', desc: 'ρ = λ / μ — indica la fracción del tiempo que el servidor está ocupado. Valores cercanos a 1 implican congestionamiento.', recommendation: 'Si ρ está cerca de 1, aumenta μ o reduce λ para mejorar rendimiento.', target: 'lambda', delta: 1 },
+        { key: 'Ls', title: 'Clientes en Sistema (Ls)', desc: 'Ls es el número promedio de clientes en el sistema. A mayor λ y ρ, mayor Ls.', recommendation: 'Reducir λ o aumentar μ para bajar Ls.', target: 'lambda', delta: 1 },
+        { key: 'Lq', title: 'Clientes en Cola (Lq)', desc: 'Lq es el número promedio de clientes esperando en cola.', recommendation: 'Incrementar la capacidad de servicio (μ) o balancear carga.', target: 'lambda', delta: 1 },
+        { key: 'Wq', title: 'Tiempo en Cola (Wq)', desc: 'Wq es el tiempo promedio de espera en cola.', recommendation: 'Si Wq es alto, prioriza aumentar μ o reducir llegadas.', target: 'mu', delta: 1 },
+        { key: 'Ws', title: 'Tiempo en Sistema (Ws)', desc: 'Ws es el tiempo promedio total en el sistema.', recommendation: 'Mejorar el servicio para reducir Ws.', target: 'mu', delta: 1 },
+        { key: 'Pk', title: 'Probabilidad de Rechazo (Pk)', desc: 'Probabilidad de que una llegada sea rechazada debido a capacidad K.', recommendation: 'Aumentar K o μ para reducir Pk.', target: 'k', delta: 1 },
+    ];
+
+    // Recalcula resultados para M/M/1/K (se usa tanto en cálculo como en simulaciones)
+    const computeResultsForK = (lambdaVal, muVal, kVal) => {
+        const lambdaNum = parseFloat(lambdaVal);
+        const muNum = parseFloat(muVal);
+        const kNum = parseInt(kVal, 10);
+        if (isNaN(lambdaNum) || isNaN(muNum) || isNaN(kNum) || lambdaNum <= 0 || muNum <= 0 || kNum <= 0) return null;
+        const rho = lambdaNum / muNum;
+        let P0;
+        if (rho === 1) P0 = 1 / (kNum + 1);
+        else P0 = (1 - rho) / (1 - Math.pow(rho, kNum + 1));
+        const Pk = P0 * Math.pow(rho, kNum);
+        const lambdaEfectiva = lambdaNum * (1 - Pk);
+        const lambdaPerdida = lambdaNum - lambdaEfectiva;
+        let Ls;
+        if (rho === 1) Ls = kNum / 2;
+        else Ls = rho * (1 - (kNum + 1) * Math.pow(rho, kNum) + kNum * Math.pow(rho, kNum + 1)) / ((1 - rho) * (1 - Math.pow(rho, kNum + 1)));
+        const Ws = Ls / lambdaEfectiva;
+        const Wq = Ws - (1 / muNum);
+        const Lq = lambdaEfectiva * Wq;
+        const probabilityTable = [];
+        let accumulatedFn = 0;
+        for (let n = 0; n <= kNum; n++) {
+            const Pn = P0 * Math.pow(rho, n);
+            accumulatedFn += Pn;
+            probabilityTable.push({ n, Pn, Fn: accumulatedFn });
+        }
+        return {
+            lambda: lambdaNum,
+            mu: muNum,
+            k: kNum,
+            rho, Ls, Lq, Ws, Wq, lambdaEfectiva, lambdaPerdida, Pk, P0, probabilityTable
+        };
+    };
+
+    const simulateChange = (field, delta) => {
+        if (!results) return;
+        if (!originalResults) setOriginalResults(results);
+        let newLambda = parseFloat(results.lambda);
+        let newMu = parseFloat(results.mu);
+        let newK = results.k;
+        if (field === 'lambda') newLambda = Math.max(0.0001, newLambda + delta);
+        if (field === 'mu') newMu = Math.max(0.0001, newMu + delta);
+        if (field === 'k') newK = Math.max(1, newK + delta);
+        // validate stability for formulas (lambda < mu)
+        if (newLambda >= newMu) {
+            setError('La simulación produce λ >= μ; ajusta los valores.');
+            return;
+        }
+        const sim = computeResultsForK(newLambda, newMu, newK);
+        if (!sim) { setError('Simulación inválida'); return; }
+        setResults(sim);
+        setSimulated(true);
+        setError('');
+    };
+
+    const restoreOriginal = () => {
+        if (originalResults) {
+            setResults(originalResults);
+            setOriginalResults(null);
+            setSimulated(false);
+            setError('');
+        }
+    };
 
     return (
         // Contenedor principal con max-w-6xl para aprovechar más el espacio
@@ -156,6 +235,7 @@ function Server_con_cola_av() {
                                 </div>
                             </div>
                         )}
+
                         <h1 className="text-2xl font-extrabold mb-2 text-center text-white">
                             M/M/1/K
                         </h1>
@@ -358,15 +438,51 @@ function Server_con_cola_av() {
 
                 {/* --- COLUMNA 2: RESULTADOS (MÉTRICAS y TABLA) --- */}
                 <div className="md:w-2/3 print:w-full">
-                    {/* Encabezado para la impresión */}
+
+                    {/* --- Sección de reporte exclusiva para impresión --- */}
+                    {/* Esta sección está oculta en pantalla (hidden) y sólo se muestra con CSS de impresión (print:block) */}
                     {results && (
-                        <div className="hidden print:block mb-6">
-                            <h1 className="text-3xl font-bold mb-2 text-center text-black">
-                                Reporte de Resultados - M/M/1/K
-                            </h1>
-                            <p className="text-center text-gray-600 mb-4">
-                                Parámetros: $\lambda$ = {results.lambda} | $\mu$ = {results.mu} | Capacidad (K) = {results.k}
-                            </p>
+                        <div className="hidden print:block mt-6 text-black">
+                            <div className="max-w-4xl mx-auto p-4 border-t border-gray-300">
+                                <h1 className="text-3xl font-bold mb-2 text-center text-black">Reporte de Resultados - M/M/1/K</h1>
+                                <p className="text-center text-gray-700 mb-4">Este reporte contiene los parámetros usados, las métricas principales y la distribución de probabilidad. Cada métrica incluye una breve explicación.</p>
+
+                                {/* Parámetros */}
+                                <section className="mb-4">
+                                    <h3 className="font-semibold">Parámetros</h3>
+                                    <table className="w-full text-sm">
+                                        <tbody>
+                                            <tr>
+                                                <td className="py-1 font-medium">λ (tasa de llegada)</td>
+                                                <td className="py-1">{results.lambda}</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="py-1 font-medium">μ (tasa de servicio)</td>
+                                                <td className="py-1">{results.mu}</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="py-1 font-medium">K (Capacidad)</td>
+                                                <td className="py-1">{results.k}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </section>
+
+                                {/* Explicaciones (breves, tomadas de la guía) */}
+                                <section className="mb-4">
+                                    <h3 className="font-semibold">Explicaciones</h3>
+                                    <ol className="list-decimal ml-5 text-sm">
+                                        <li><strong>λ:</strong> tasa promedio de llegadas por unidad de tiempo.</li>
+                                        <li><strong>μ:</strong> tasa promedio de servicio por unidad de tiempo.</li>
+                                        <li><strong>ρ = λ/μ:</strong> fracción del tiempo que el servidor está ocupado; valores cercanos a 1 indican congestión.</li>
+                                        <li><strong>Pk:</strong> probabilidad de que una llegada sea rechazada debido a capacidad K.</li>
+                                        <li><strong>Ls:</strong> número promedio de clientes en el sistema (esperando + en servicio).</li>
+                                        <li><strong>Lq:</strong> número promedio de clientes esperando en la cola.</li>
+                                        <li><strong>Ws:</strong> tiempo promedio en el sistema (espera + servicio).</li>
+                                        <li><strong>Wq:</strong> tiempo promedio de espera en cola.</li>
+                                    </ol>
+                                </section>
+                            </div>
                         </div>
                     )}
 
@@ -415,6 +531,69 @@ function Server_con_cola_av() {
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+
+                            {/* PANEL: Guía de interpretación (oculta hasta que el usuario la abra) */}
+                            <div className="mt-6 print:hidden">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-lg font-bold text-emerald-300">Guía de interpretación</h3>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => { setShowGuide(!showGuide); if (!showGuide) setGuideStep(0); }} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">{showGuide ? 'Cerrar guía' : 'Abrir guía'}</button>
+                                        {simulated && <button onClick={restoreOriginal} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Restaurar</button>}
+                                    </div>
+                                </div>
+
+                                {showGuide && (
+                                    <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div className="md:col-span-2">
+                                                <h4 className="text-white font-semibold">{guideSteps[guideStep].title}</h4>
+                                                <p className="text-gray-300 text-sm mt-2">{guideSteps[guideStep].desc}</p>
+                                                <p className="text-gray-400 text-sm mt-2">Recomendación: {guideSteps[guideStep].recommendation}</p>
+
+                                                <div className="flex gap-2 mt-4">
+                                                    <button onClick={() => setGuideStep(Math.max(0, guideStep - 1))} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">Anterior</button>
+                                                    <button onClick={() => setGuideStep(Math.min(guideSteps.length - 1, guideStep + 1))} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded">Siguiente</button>
+                                                    <button onClick={() => simulateChange(guideSteps[guideStep].target, guideSteps[guideStep].delta)} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Simular cambio</button>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <p className="text-xs text-gray-400">Métrica actual</p>
+                                                <div className="mt-3 grid grid-cols-1 gap-2">
+                                                    {['rho','Ls','Lq','Wq','Ws','Pk'].map((key, idx) => {
+                                                        const labelMap = {
+                                                            rho: 'Utilización (ρ)',
+                                                            Ls: 'Clientes en Sistema (Ls)',
+                                                            Lq: 'Clientes en Cola (Lq)',
+                                                            Wq: 'Tiempo en Cola (Wq)',
+                                                            Ws: 'Tiempo en Sistema (Ws)',
+                                                            Pk: 'Prob. de Rechazo (Pk)'
+                                                        };
+                                                        const valueMap = {
+                                                            rho: results.rho.toFixed(4),
+                                                            Ls: results.Ls.toFixed(4),
+                                                            Lq: results.Lq.toFixed(4),
+                                                            Wq: results.Wq.toFixed(4),
+                                                            Ws: results.Ws.toFixed(4),
+                                                            Pk: results.Pk.toFixed(4)
+                                                        };
+                                                        const isActive = guideSteps[guideStep].key === key;
+                                                        return (
+                                                            <div key={key} role="button" tabIndex={0}
+                                                                onClick={() => { setGuideStep(idx); if (!showGuide) setShowGuide(true); }}
+                                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setGuideStep(idx); if (!showGuide) setShowGuide(true); } }}
+                                                                className="cursor-pointer"
+                                                            >
+                                                                <MetricCard label={labelMap[key]} value={valueMap[key]} highlight={isActive} />
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     ) : (

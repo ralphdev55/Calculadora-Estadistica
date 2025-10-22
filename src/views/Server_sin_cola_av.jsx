@@ -127,12 +127,75 @@ function Server_sin_cola_av() {
     // --- SUBCOMPONENTES DE RENDERIZADO ---
 
     // Componente reutilizable para mostrar cada métrica en una tarjeta
-    const MetricCard = ({ label, value }) => (
-        <div className="bg-gray-800/70 p-3 rounded-lg text-center print:bg-gray-200 print:text-black print:border print:border-gray-400">
-            <p className="text-xs text-gray-400 print:text-gray-600 font-medium">{label}</p>
-            <p className="text-xl font-bold text-emerald-400 print:text-emerald-700 mt-1">{value}</p>
+    const MetricCard = ({ label, value, highlight }) => (
+        <div className={`p-3 rounded-lg text-center print:bg-gray-200 print:text-black print:border print:border-gray-400 ${highlight ? 'bg-emerald-700/30 ring-2 ring-emerald-400' : 'bg-gray-800/70'}`}>
+            <p className={`text-xs ${highlight ? 'text-white' : 'text-gray-400'} print:text-gray-600 font-medium`}>{label}</p>
+            <p className={`text-xl font-bold ${highlight ? 'text-white' : 'text-emerald-400'} print:text-emerald-700 mt-1`}>{value}</p>
         </div>
     );
+
+    // --- GUÍA DE INTERPRETACIÓN ---
+    const [showGuide, setShowGuide] = useState(false);
+    const [guideStep, setGuideStep] = useState(0); // índice en guideSteps
+    const [originalResults, setOriginalResults] = useState(null);
+    const [simulated, setSimulated] = useState(false);
+
+    const guideSteps = [
+        { key: 'rho', title: 'Utilización (ρ)', desc: 'ρ = λ / μ — indica la fracción del tiempo que el servidor está ocupado. Valores cercanos a 1 implican congestionamiento.', recommendation: ' Si ρ está cerca de 1, aumenta μ o reduce λ para mejorar rendimiento.', target: 'lambda', delta: 1 },
+        { key: 'Ls', title: 'Clientes en Sistema (Ls)', desc: 'Ls es el número promedio de clientes en el sistema. A mayor λ y ρ, mayor Ls.', recommendation: 'Reducir λ o aumentar μ para bajar Ls.', target: 'lambda', delta: 1 },
+        { key: 'Lq', title: 'Clientes en Cola (Lq)', desc: 'Lq es el número promedio de clientes esperando en cola.', recommendation: 'Incrementar la capacidad de servicio (μ) o balancear carga.', target: 'lambda', delta: 1 },
+        { key: 'Wq', title: 'Tiempo en Cola (Wq)', desc: 'Wq es el tiempo promedio de espera en cola.', recommendation: 'Si Wq es alto, prioriza aumentar μ o reducir llegadas.', target: 'mu', delta: 1 },
+        { key: 'Ws', title: 'Tiempo en Sistema (Ws)', desc: 'Ws es el tiempo promedio total en el sistema.', recommendation: 'Mejorar el servicio (μ) reduce Ws.', target: 'mu', delta: 1 },
+        { key: 'P0', title: 'Probabilidad sistema vacío (P0)', desc: 'P0 es la probabilidad de que no haya clientes en el sistema.', recommendation: 'Valores bajos de P0 indican alta ocupación.', target: 'mu', delta: 1 },
+    ];
+
+    // Helper: recalcula resultados a partir de lambda y mu (same formulas)
+    const computeResults = (lambda, mu) => {
+        const rho = lambda / mu;
+        const Ls = lambda / (mu - lambda);
+        const Lq = Math.pow(lambda, 2) / (mu * (mu - lambda));
+        const Ws = 1 / (mu - lambda);
+        const Wq = lambda / (mu * (mu - lambda));
+        const P0 = 1 - rho;
+        const probabilityTable = [];
+        const maxNForTable = 20;
+        for (let n = 0; n <= maxNForTable; n++) {
+            const Pn = (1 - rho) * Math.pow(rho, n);
+            const Fn = 1 - Math.pow(rho, n + 1);
+            probabilityTable.push({ n, Pn, Fn });
+        }
+        return { lambda, mu, rho, Ls, Lq, Ws, Wq, P0, probabilityTable };
+    };
+
+    const simulateChange = (field, delta) => {
+        // store original
+        if (!results) return;
+        if (!originalResults) setOriginalResults(results);
+        const lambda = parseFloat(results.lambda);
+        const mu = parseFloat(results.mu);
+        let newLambda = lambda;
+        let newMu = mu;
+        if (field === 'lambda') newLambda = Math.max(0.0001, lambda + delta);
+        if (field === 'mu') newMu = Math.max(0.0001, mu + delta);
+        // validate stability
+        if (newLambda >= newMu) {
+            setError('La simulación produce λ >= μ; ajusta los valores.');
+            return;
+        }
+        const simulatedResults = computeResults(newLambda, newMu);
+        setResults(simulatedResults);
+        setSimulated(true);
+        setError('');
+    };
+
+    const restoreOriginal = () => {
+        if (originalResults) {
+            setResults(originalResults);
+            setOriginalResults(null);
+            setSimulated(false);
+            setError('');
+        }
+    };
 
     // --- RENDERIZADO PRINCIPAL DEL COMPONENTE ---
     return (
@@ -145,7 +208,7 @@ function Server_sin_cola_av() {
                     <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 h-full relative">
                         {/* Modal introductorio del asistente "Calculon" */}
                         {showIntro && (
-                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:hidden">
                                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowIntro(false)}></div>
                                 <div className="relative bg-gray-800 rounded-xl p-6 max-w-md w-full shadow-2xl border border-gray-700 animate-scale-in">
                                     <div className="flex items-center gap-3">
@@ -215,7 +278,7 @@ function Server_sin_cola_av() {
 
                                 {/* Burbuja junto al input activo (λ) */}
                                 {assistantActive && !showIntro && step === 1 && (
-                                    <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 z-40">
+                                    <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 z-40 print:hidden">
                                         <div className="bg-emerald-600 text-white p-2 rounded-lg shadow-lg animate-float-up">
                                             <p className="text-sm font-medium">Paso 1</p>
                                             <p className="text-xs mt-1">Introduce λ y presiona Enter o usa el botón Siguiente.</p>
@@ -281,7 +344,7 @@ function Server_sin_cola_av() {
 
                                         {/* Burbuja junto al input activo (μ) */}
                                         {assistantActive && !showIntro && step === 2 && (
-                                            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 z-40">
+                                            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 z-40 print:hidden">
                                                 <div className="bg-emerald-600 text-white p-2 rounded-lg shadow-lg animate-float-up">
                                                     <p className="text-sm font-medium">Paso 2</p>
                                                     <p className="text-xs mt-1">Ahora ingresa μ. Puedes presionar Enter para calcular.</p>
@@ -317,15 +380,49 @@ function Server_sin_cola_av() {
 
                 {/* --- COLUMNA DERECHA: RESULTADOS (Métricas y Tabla) --- */}
                 <div className="md:w-2/3 print:w-full">
-                    {/* Encabezado que solo aparece al imprimir */}
-                    {results && (
-                        <div className="hidden print:block mb-6">
+
+                {/* --- Sección de reporte exclusiva para impresión --- */}
+                {/* Esta sección está oculta en pantalla (hidden) y sólo se muestra con CSS de impresión (print:block) */}
+                {results && (
+                    <div className="hidden print:block mt-6 text-black">
+                        <div className="max-w-4xl mx-auto p-4 border-t border-gray-300">
                             <h1 className="text-3xl font-bold mb-2 text-center text-black">Reporte de Resultados - M/M/1</h1>
-                            <p className="text-center text-gray-600 mb-4">
-                                Parámetros: $\lambda$ = {results.lambda} | $\mu$ = {results.mu}
-                            </p>
+                            <p className="text-center text-gray-700 mb-4">Este reporte contiene los parámetros usados, las métricas principales y la distribución de probabilidad. Cada métrica incluye una breve explicación.</p>
+
+                            {/* Parámetros */}
+                            <section className="mb-4">
+                                <h3 className="font-semibold">Parámetros</h3>
+                                <table className="w-full text-sm">
+                                    <tbody>
+                                        <tr>
+                                            <td className="py-1 font-medium">λ (tasa de llegada)</td>
+                                            <td className="py-1">{results.lambda}</td>
+                                        </tr>
+                                        <tr>
+                                            <td className="py-1 font-medium">μ (tasa de servicio)</td>
+                                            <td className="py-1">{results.mu}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </section>
+
+                            {/* Explicaciones (breves, tomadas de la guía) */}
+                            <section className="mb-4">
+                                <h3 className="font-semibold">Explicaciones</h3>
+                                <ol className="list-decimal ml-5 text-sm">
+                                    <li><strong>λ:</strong> tasa promedio de llegadas por unidad de tiempo.</li>
+                                    <li><strong>μ:</strong> tasa promedio de servicio por unidad de tiempo.</li>
+                                    <li><strong>ρ = λ/μ:</strong> fracción del tiempo que el servidor está ocupado; valores cercanos a 1 indican congestión.</li>
+                                    <li><strong>P0:</strong> probabilidad de que no haya clientes en el sistema.</li>
+                                    <li><strong>Ls:</strong> número promedio de clientes en el sistema (esperando + en servicio).</li>
+                                    <li><strong>Lq:</strong> número promedio de clientes esperando en la cola.</li>
+                                    <li><strong>Ws:</strong> tiempo promedio en el sistema (espera + servicio).</li>
+                                    <li><strong>Wq:</strong> tiempo promedio de espera en cola.</li>
+                                </ol>
+                            </section>
                         </div>
-                    )}
+                    </div>
+                )}
 
                     {/* Muestra los resultados o un mensaje inicial */}
                     {results ? (
@@ -368,6 +465,69 @@ function Server_sin_cola_av() {
                                     </table>
                                 </div>
                             </div>
+
+                            {/* PANEL: Guía de interpretación (oculta hasta que el usuario la abra) */}
+                            <div className="mt-6 print:hidden">
+                                <div className="flex items-center justify-between mb-3">
+                                    <h3 className="text-lg font-bold text-emerald-300">Guía de interpretación</h3>
+                                    <div className="flex items-center gap-2">
+                                        <button onClick={() => { setShowGuide(!showGuide); if (!showGuide) setGuideStep(0); }} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">{showGuide ? 'Cerrar guía' : 'Abrir guía'}</button>
+                                        {simulated && <button onClick={restoreOriginal} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Restaurar</button>}
+                                    </div>
+                                </div>
+
+                                {showGuide && (
+                                    <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            <div className="md:col-span-2">
+                                                <h4 className="text-white font-semibold">{guideSteps[guideStep].title}</h4>
+                                                <p className="text-gray-300 text-sm mt-2">{guideSteps[guideStep].desc}</p>
+                                                <p className="text-gray-400 text-sm mt-2">Recomendación: {guideSteps[guideStep].recommendation}</p>
+
+                                                <div className="flex gap-2 mt-4">
+                                                    <button onClick={() => setGuideStep(Math.max(0, guideStep - 1))} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">Anterior</button>
+                                                    <button onClick={() => setGuideStep(Math.min(guideSteps.length - 1, guideStep + 1))} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded">Siguiente</button>
+                                                    <button onClick={() => simulateChange(guideSteps[guideStep].target, guideSteps[guideStep].delta)} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Simular cambio</button>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <p className="text-xs text-gray-400">Métrica actual</p>
+                                                <div className="mt-3 grid grid-cols-1 gap-2">
+                                                    {['rho','Ls','Lq','Wq','Ws','P0'].map((key, idx) => {
+                                                        const labelMap = {
+                                                            rho: 'Utilización (ρ)',
+                                                            Ls: 'Clientes en Sistema (Ls)',
+                                                            Lq: 'Clientes en Cola (Lq)',
+                                                            Wq: 'Tiempo en Cola (Wq)',
+                                                            Ws: 'Tiempo en Sistema (Ws)',
+                                                            P0: 'Prob. Sistema Vacío (P0)'
+                                                        };
+                                                        const valueMap = {
+                                                            rho: results.rho.toFixed(4),
+                                                            Ls: results.Ls.toFixed(4),
+                                                            Lq: results.Lq.toFixed(4),
+                                                            Wq: results.Wq.toFixed(4),
+                                                            Ws: results.Ws.toFixed(4),
+                                                            P0: results.P0.toFixed(4)
+                                                        };
+                                                        const isActive = guideSteps[guideStep].key === key;
+                                                        return (
+                                                            <div key={key} role="button" tabIndex={0}
+                                                                onClick={() => { setGuideStep(idx); if (!showGuide) setShowGuide(true); }}
+                                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setGuideStep(idx); if (!showGuide) setShowGuide(true); } }}
+                                                                className="cursor-pointer"
+                                                            >
+                                                                <MetricCard label={labelMap[key]} value={valueMap[key]} highlight={isActive} />
+                                                            </div>
+                                                        );
+                                                    })}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     ) : (
                         <div className="flex items-center justify-center h-full bg-gray-800 p-10 rounded-xl shadow-2xl border border-gray-700 text-center">
@@ -391,7 +551,7 @@ function Server_sin_cola_av() {
 
             {/* Toast de felicitación de Calculon (esquina superior derecha) */}
             {showCongrats && (
-                <div className="fixed top-6 right-6 z-50">
+                <div className="fixed top-6 right-6 z-50 print:hidden">
                     <div className="bg-emerald-600 text-white p-3 rounded-lg shadow-xl flex items-center gap-3 animate-scale-in">
                         <div className="bg-white/20 rounded-full p-2">
                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-white" viewBox="0 0 20 20" fill="currentColor">
@@ -405,6 +565,7 @@ function Server_sin_cola_av() {
                     </div>
                 </div>
             )}
+
         </div>
     );
 }

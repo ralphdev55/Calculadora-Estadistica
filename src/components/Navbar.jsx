@@ -8,7 +8,7 @@ const activeLinkStyle = {
   };
 
   return (
-    <header className="bg-gray-800/90 backdrop-blur-sm shadow-lg sticky top-0 z-50">
+    <header className="bg-gray-800/90 backdrop-blur-sm shadow-lg sticky top-0 z-50 print:hidden">
       <nav className="container mx-auto px-6 py-6 flex justify-between items-center">
         
         {/* Lado Izquierdo: Tu Marca/Logo */}
