@@ -1,5 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+// Asumiremos que 'Link' de 'react-router-dom' está disponible en tu proyecto
+// import { Link } from 'react-router-dom';
+
+// Componente Link de reemplazo por si react-router-dom no está configurado
+const Link = ({ to, children, ...props }) => (
+    <a href={to} {...props}>{children}</a>
+);
 
 // Función para imprimir (fuera del componente para evitar que se recree en cada render)
 const handlePrint = () => {
@@ -51,67 +57,94 @@ function Server_con_cola_av() {
         });
     };
 
-    const handleCalculate = (e) => {
-        e.preventDefault(); 
+    // --- FUNCIÓN CENTRAL DE CÁLCULO M/M/1/K ---
+    // Recalcula resultados para M/M/1/K (se usa tanto en cálculo como en simulaciones)
+    const computeResultsForK = (lambdaVal, muVal, kVal) => {
+        const lambdaNum = parseFloat(lambdaVal);
+        const muNum = parseFloat(muVal);
+        const kNum = parseInt(kVal, 10);
 
-        // 2. VALIDACIÓN Y CÁLCULO
-        const lambda = parseFloat(inputs.lambda);
-        const mu = parseFloat(inputs.mu);
-        const k = parseInt(inputs.k, 10);
-
-        if (isNaN(lambda) || isNaN(mu) || isNaN(k) || lambda <= 0 || mu <= 0 || k <= 0) {
+        // Validación básica de entradas
+        if (isNaN(lambdaNum) || isNaN(muNum) || isNaN(kNum) || lambdaNum <= 0 || muNum <= 0 || kNum <= 0) {
             setError('Por favor, ingresa valores numéricos válidos y positivos.');
             setResults(null);
-            return;
+            return null;
         }
         
-        setError(''); // Limpia errores
+        setError(''); // Limpia errores si los datos son válidos
 
         // Fórmulas del modelo M/M/1/K (cola finita)
-        const rho = lambda / mu;
+        const rho = lambdaNum / muNum;
         let P0;
 
+        // Caso especial cuando rho = 1
         if (rho === 1) {
-            P0 = 1 / (k + 1);
+            P0 = 1 / (kNum + 1);
         } else {
-            P0 = (1 - rho) / (1 - Math.pow(rho, k + 1));
+            P0 = (1 - rho) / (1 - Math.pow(rho, kNum + 1));
         }
 
-        const Pk = P0 * Math.pow(rho, k);
-        const lambdaEfectiva = lambda * (1 - Pk);
-        const lambdaPerdida = lambda - lambdaEfectiva;
+        const Pk = P0 * Math.pow(rho, kNum); // Probabilidad de sistema lleno (rechazo)
+        const lambdaEfectiva = lambdaNum * (1 - Pk);
+        const lambdaPerdida = lambdaNum - lambdaEfectiva;
 
-        let Ls;
+        let Ls; // Clientes en el sistema
         if (rho === 1) {
-            Ls = k / 2;
+            Ls = kNum / 2;
         } else {
-            Ls = rho * (1 - (k + 1) * Math.pow(rho, k) + k * Math.pow(rho, k + 1)) / ((1 - rho) * (1 - Math.pow(rho, k + 1)));
+            Ls = rho * (1 - (kNum + 1) * Math.pow(rho, kNum) + kNum * Math.pow(rho, kNum + 1)) / ((1 - rho) * (1 - Math.pow(rho, kNum + 1)));
         }
         
-        const Ws = Ls / lambdaEfectiva;
-        const Wq = Ws - (1 / mu);
-        const Lq = lambdaEfectiva * Wq;
+        // Ws (Tiempo en sistema) debe manejar división por cero si lambdaEfectiva es 0
+        // (esto podría pasar si Pk es 1, aunque es matemáticamente improbable con P0 > 0)
+        const Ws = (lambdaEfectiva > 0) ? (Ls / lambdaEfectiva) : 0;
+        const Wq = Ws - (1 / muNum); // Tiempo en cola
+        const Lq = lambdaEfectiva * Wq; // Clientes en cola
         
         // Generar la tabla de probabilidad
         const probabilityTable = [];
         let accumulatedFn = 0;
-        for (let n = 0; n <= k; n++) {
-            const Pn = P0 * Math.pow(rho, n);
+        for (let n = 0; n <= kNum; n++) {
+            let Pn;
+            if (rho === 1) {
+                Pn = P0; // Pn es 1/(k+1) para todo n
+            } else {
+                Pn = P0 * Math.pow(rho, n);
+            }
             accumulatedFn += Pn;
-            probabilityTable.push({ n, Pn, Fn: accumulatedFn });
+            // Asegurar que Fn no supere 1.0 por errores de punto flotante
+            const Fn = Math.min(accumulatedFn, 1.0); 
+            probabilityTable.push({ n, Pn, Fn });
         }
 
-        // 3. ACTUALIZAR ESTADO PARA MOSTRAR RESULTADOS
-        setResults({ 
-            lambda: lambda.toFixed(3), 
-            mu: mu.toFixed(3),
-            k: k,
-            rho, Ls, Lq, Ws, Wq, lambdaEfectiva, lambdaPerdida, Pk, probabilityTable 
-        });
-        // Ocultar asistente y mostrar felicitación
-        setAssistantActive(false);
-        setShowIntro(false);
-        setShowCongrats(true);
+        return {
+            lambda: lambdaNum,
+            mu: muNum,
+            k: kNum,
+            rho, Ls, Lq, Ws, Wq, lambdaEfectiva, lambdaPerdida, Pk, P0, probabilityTable
+        };
+    };
+
+    // --- MANEJADOR DEL BOTÓN CALCULAR ---
+    const handleCalculate = (e) => {
+        e.preventDefault(); 
+        
+        const calculatedResults = computeResultsForK(inputs.lambda, inputs.mu, inputs.k);
+
+        if (calculatedResults) {
+            // 3. ACTUALIZAR ESTADO PARA MOSTRAR RESULTADOS
+            // Usamos .toFixed() aquí para mantener el estado con los strings formateados
+            setResults({
+                ...calculatedResults,
+                lambda: calculatedResults.lambda.toFixed(3),
+                mu: calculatedResults.mu.toFixed(3),
+            });
+            // Ocultar asistente y mostrar felicitación
+            setAssistantActive(false);
+            setShowIntro(false);
+            setShowCongrats(true);
+        }
+        // Si 'calculatedResults' es null, la función computeResultsForK ya estableció el error.
     };
 
     // Componente reutilizable para las tarjetas de métricas (ESTILO REDISEÑADO)
@@ -138,56 +171,32 @@ function Server_con_cola_av() {
         { key: 'Pk', title: 'Probabilidad de Rechazo (Pk)', desc: 'Probabilidad de que una llegada sea rechazada debido a capacidad K.', recommendation: 'Aumentar K o μ para reducir Pk.', target: 'k', delta: 1 },
     ];
 
-    // Recalcula resultados para M/M/1/K (se usa tanto en cálculo como en simulaciones)
-    const computeResultsForK = (lambdaVal, muVal, kVal) => {
-        const lambdaNum = parseFloat(lambdaVal);
-        const muNum = parseFloat(muVal);
-        const kNum = parseInt(kVal, 10);
-        if (isNaN(lambdaNum) || isNaN(muNum) || isNaN(kNum) || lambdaNum <= 0 || muNum <= 0 || kNum <= 0) return null;
-        const rho = lambdaNum / muNum;
-        let P0;
-        if (rho === 1) P0 = 1 / (kNum + 1);
-        else P0 = (1 - rho) / (1 - Math.pow(rho, kNum + 1));
-        const Pk = P0 * Math.pow(rho, kNum);
-        const lambdaEfectiva = lambdaNum * (1 - Pk);
-        const lambdaPerdida = lambdaNum - lambdaEfectiva;
-        let Ls;
-        if (rho === 1) Ls = kNum / 2;
-        else Ls = rho * (1 - (kNum + 1) * Math.pow(rho, kNum) + kNum * Math.pow(rho, kNum + 1)) / ((1 - rho) * (1 - Math.pow(rho, kNum + 1)));
-        const Ws = Ls / lambdaEfectiva;
-        const Wq = Ws - (1 / muNum);
-        const Lq = lambdaEfectiva * Wq;
-        const probabilityTable = [];
-        let accumulatedFn = 0;
-        for (let n = 0; n <= kNum; n++) {
-            const Pn = P0 * Math.pow(rho, n);
-            accumulatedFn += Pn;
-            probabilityTable.push({ n, Pn, Fn: accumulatedFn });
-        }
-        return {
-            lambda: lambdaNum,
-            mu: muNum,
-            k: kNum,
-            rho, Ls, Lq, Ws, Wq, lambdaEfectiva, lambdaPerdida, Pk, P0, probabilityTable
-        };
-    };
 
     const simulateChange = (field, delta) => {
         if (!results) return;
         if (!originalResults) setOriginalResults(results);
+        
+        // Usamos los valores numéricos del estado 'results' (lambda, mu, k)
         let newLambda = parseFloat(results.lambda);
         let newMu = parseFloat(results.mu);
         let newK = results.k;
+
         if (field === 'lambda') newLambda = Math.max(0.0001, newLambda + delta);
         if (field === 'mu') newMu = Math.max(0.0001, newMu + delta);
         if (field === 'k') newK = Math.max(1, newK + delta);
-        // validate stability for formulas (lambda < mu)
-        if (newLambda >= newMu) {
-            setError('La simulación produce λ >= μ; ajusta los valores.');
-            return;
-        }
+        
+        // --- VALIDACIÓN CORREGIDA ---
+        // Se eliminó la validación "if (newLambda >= newMu)"
+        // Este modelo M/M/1/K es válido incluso si lambda > mu.
+        
         const sim = computeResultsForK(newLambda, newMu, newK);
-        if (!sim) { setError('Simulación inválida'); return; }
+        
+        if (!sim) { 
+            setError('Simulación inválida'); 
+            return; 
+        }
+
+        // Guardamos los resultados numéricos para la próxima simulación
         setResults(sim);
         setSimulated(true);
         setError('');
@@ -204,7 +213,7 @@ function Server_con_cola_av() {
 
     return (
         // Contenedor principal con max-w-6xl para aprovechar más el espacio
-        <div className="max-w-6xl mx-auto text-white print:text-black print:bg-white p-4">
+        <div className="max-w-6xl mx-auto text-white print:text-black print:bg-white p-4 font-sans">
             
             {/* Contenedor principal para la estructura de dos columnas en escritorio */}
             <div className="flex flex-col md:flex-row gap-8">
@@ -260,6 +269,7 @@ function Server_con_cola_av() {
                                     <input
                                         ref={lambdaRef}
                                         type="number"
+                                        step="any"
                                         name="lambda"
                                         id="lambda"
                                         value={inputs.lambda}
@@ -277,12 +287,12 @@ function Server_con_cola_av() {
                                                 setStep(2);
                                             }
                                         }}
-                                        placeholder="Ej: 10"
+                                        placeholder="Ej: 4"
                                         className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
                                     />
 
                                     {assistantActive && !showIntro && step === 1 && (
-                                        <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 z-40">
+                                        <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 z-40 hidden md:block">
                                             <div className="bg-emerald-600 text-white p-2 rounded-lg shadow-lg animate-float-up">
                                                 <p className="text-sm font-medium">Paso 1</p>
                                                 <p className="text-xs mt-1">Introduce λ y presiona Enter o usa el botón Siguiente.</p>
@@ -321,12 +331,13 @@ function Server_con_cola_av() {
                                             </div>
                                             <div>
                                                 <p className="text-xs text-gray-200 font-medium">Explicación</p>
-                                                <p className="text-sm text-gray-300">μ es la tasa promedio de servicio por unidad de tiempo. Para estabilidad, μ debe ser mayor que λ.</p>
+                                                <p className="text-sm text-gray-300">μ es la tasa promedio de servicio. A diferencia del M/M/1, no necesita ser mayor que λ.</p>
                                             </div>
                                         </div>
                                         <input
                                             ref={muRef}
                                             type="number"
+                                            step="any"
                                             name="mu"
                                             id="mu"
                                             value={inputs.mu}
@@ -344,12 +355,12 @@ function Server_con_cola_av() {
                                                     setStep(3);
                                                 }
                                             }}
-                                            placeholder="Ej: 12"
+                                            placeholder="Ej: 6"
                                             className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
                                         />
 
                                         {assistantActive && !showIntro && step === 2 && (
-                                            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 z-40">
+                                            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 z-40 hidden md:block">
                                                 <div className="bg-emerald-600 text-white p-2 rounded-lg shadow-lg animate-float-up">
                                                     <p className="text-sm font-medium">Paso 2</p>
                                                     <p className="text-xs mt-1">Introduce μ y presiona Enter o usa el botón Siguiente.</p>
@@ -380,7 +391,7 @@ function Server_con_cola_av() {
                                 {/* Paso 3: k (solo si step === 3) */}
                                 {step === 3 && (
                                     <div className="relative">
-                                        <label htmlFor="k" className="block text-sm font-medium text-gray-300 mb-1">Capacidad de la cola (K)</label>
+                                        <label htmlFor="k" className="block text-sm font-medium text-gray-300 mb-1">Capacidad del Sistema (K)</label>
                                         <div className="bg-gray-700/40 border border-gray-600 p-3 rounded-md mb-2 flex items-start gap-3">
                                             <div className="flex-shrink-0 mt-0.5">
                                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-300" viewBox="0 0 20 20" fill="currentColor">
@@ -389,12 +400,13 @@ function Server_con_cola_av() {
                                             </div>
                                             <div>
                                                 <p className="text-xs text-gray-200 font-medium">Explicación</p>
-                                                <p className="text-sm text-gray-300">K es la capacidad total del sistema (incluye al que está en servicio). Ingresa un entero positivo.</p>
+                                                <p className="text-sm text-gray-300">K es la capacidad total del sistema (fila + servicio). (Ej: 4 en espera + 1 en servicio = 5).</p>
                                             </div>
                                         </div>
                                         <input
                                             ref={kRef}
                                             type="number"
+                                            step="1"
                                             name="k"
                                             id="k"
                                             value={inputs.k}
@@ -410,7 +422,7 @@ function Server_con_cola_av() {
                                         />
 
                                         {assistantActive && !showIntro && (
-                                            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 z-40">
+                                            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 z-40 hidden md:block">
                                                 <div className="bg-emerald-600 text-white p-2 rounded-lg shadow-lg animate-float-up">
                                                     <p className="text-sm font-medium">Paso 3</p>
                                                     <p className="text-xs mt-1">Introduce K y presiona Enter para calcular.</p>
@@ -431,7 +443,7 @@ function Server_con_cola_av() {
                                     className="bg-gray-600 hover:bg-gray-700 text-white font-medium py-3 px-4 rounded-lg transition-colors duration-300"
                                 >Reiniciar</button>
                             </div>
-                            {error && <p className="text-red-400 text-center mt-4">{error}</p>}
+                            {error && <p className="text-red-400 text-center mt-4 text-sm">{error}</p>}
                         </form>
                     </div>
                 </div>
@@ -440,7 +452,6 @@ function Server_con_cola_av() {
                 <div className="md:w-2/3 print:w-full">
 
                     {/* --- Sección de reporte exclusiva para impresión --- */}
-                    {/* Esta sección está oculta en pantalla (hidden) y sólo se muestra con CSS de impresión (print:block) */}
                     {results && (
                         <div className="hidden print:block mt-6 text-black">
                             <div className="max-w-4xl mx-auto p-4 border-t border-gray-300">
@@ -448,7 +459,7 @@ function Server_con_cola_av() {
                                 <p className="text-center text-gray-700 mb-4">Este reporte contiene los parámetros usados, las métricas principales y la distribución de probabilidad. Cada métrica incluye una breve explicación.</p>
 
                                 {/* Parámetros */}
-                                <section className="mb-4">
+                                <section className="mb-4" style={{ breakInside: 'avoid' }}>
                                     <h3 className="font-semibold">Parámetros</h3>
                                     <table className="w-full text-sm">
                                         <tbody>
@@ -469,13 +480,15 @@ function Server_con_cola_av() {
                                 </section>
 
                                 {/* Explicaciones (breves, tomadas de la guía) */}
-                                <section className="mb-4">
+                                <section className="mb-4" style={{ breakInside: 'avoid' }}>
                                     <h3 className="font-semibold">Explicaciones</h3>
                                     <ol className="list-decimal ml-5 text-sm">
                                         <li><strong>λ:</strong> tasa promedio de llegadas por unidad de tiempo.</li>
                                         <li><strong>μ:</strong> tasa promedio de servicio por unidad de tiempo.</li>
-                                        <li><strong>ρ = λ/μ:</strong> fracción del tiempo que el servidor está ocupado; valores cercanos a 1 indican congestión.</li>
-                                        <li><strong>Pk:</strong> probabilidad de que una llegada sea rechazada debido a capacidad K.</li>
+                                        <li><strong>ρ = λ/μ:</strong> factor de utilización (tráfico).</li>
+                                        <li><strong>Pk:</strong> probabilidad de que una llegada sea rechazada (sistema lleno).</li>
+                                        <li><strong>λ Efectiva:</strong> tasa real de clientes que entran al sistema.</li>
+                                        <li><strong>λ Perdida:</strong> tasa de clientes rechazados.</li>
                                         <li><strong>Ls:</strong> número promedio de clientes en el sistema (esperando + en servicio).</li>
                                         <li><strong>Lq:</strong> número promedio de clientes esperando en la cola.</li>
                                         <li><strong>Ws:</strong> tiempo promedio en el sistema (espera + servicio).</li>
@@ -491,7 +504,7 @@ function Server_con_cola_av() {
                         <div className="space-y-8">
                             
                             {/* 1. Métricas de Rendimiento */}
-                            <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 print:bg-white print:p-0 print:shadow-none print:border-none **break-inside-avoid**">
+                            <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 print:bg-white print:p-0 print:shadow-none print:border-none" style={{ breakInside: 'avoid' }}>
                                 <h2 className="text-xl font-bold mb-4 text-center text-emerald-400 print:text-xl print:text-black">Métricas de Rendimiento</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:gap-4 print:grid-cols-4">
                                     <MetricCard label="Utilización (ρ)" value={results.rho.toFixed(4)} />
@@ -506,11 +519,11 @@ function Server_con_cola_av() {
                             </div>
 
                             {/* 2. Tabla de Probabilidad */}
-                            <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 print:bg-white print:p-0 print:shadow-none print:border-none **break-inside-avoid**">
+                            <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 print:bg-white print:p-0 print:shadow-none print:border-none" style={{ breakInside: 'avoid' }}>
                                 <h2 className="text-xl font-bold mb-4 text-center text-emerald-400 print:text-xl print:text-black print:mt-8">Tabla de Distribución de Probabilidad</h2>
-                                <div className="overflow-x-auto">
+                                <div className="overflow-x-auto max-h-96">
                                     <table className="w-full text-left print:border-collapse text-sm">
-                                        <thead className="bg-gray-700/50 print:bg-gray-300 print:text-black">
+                                        <thead className="bg-gray-700/50 print:bg-gray-300 print:text-black sticky top-0">
                                             <tr>
                                                 <th className="p-3 print:border print:border-gray-500">Clientes (n)</th>
                                                 <th className="p-3 print:border print:border-gray-500">Probabilidad (Pn)</th>
@@ -521,11 +534,12 @@ function Server_con_cola_av() {
                                             {results.probabilityTable.map((row) => (
                                                 <tr 
                                                     key={row.n} 
-                                                    className="border-b border-gray-700 hover:bg-gray-700/30 print:border-gray-400 print:hover:bg-gray-100 **break-inside-avoid**"
+                                                    className="border-b border-gray-700 last:border-b-0 hover:bg-gray-700/30 print:border-gray-400 print:hover:bg-gray-100"
+                                                    style={{ breakInside: 'avoid' }}
                                                 >
                                                     <td className="p-3 print:border print:border-gray-400">{row.n}</td>
-                                                    <td className="p-3 print:border print:border-gray-400">{row.Pn.toFixed(5)}</td>
-                                                    <td className="p-3 print:border print:border-gray-400">{row.Fn.toFixed(5)}</td>
+                                                    <td className="p-3 print:border print:border-gray-400">{row.Pn.toFixed(6)}</td>
+                                                    <td className="p-3 print:border print:border-gray-400">{row.Fn.toFixed(6)}</td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -642,5 +656,6 @@ function Server_con_cola_av() {
         </div>
     );
 }
+
 
 export default Server_con_cola_av;
