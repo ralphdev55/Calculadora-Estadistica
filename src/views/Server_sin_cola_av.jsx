@@ -238,7 +238,7 @@ function Server_sin_cola_av() {
                         <form onSubmit={handleCalculate} className="space-y-4">
                             {/* Asistente secuencial: primero lambda, luego mu */}
                             <div className="relative">
-                                <label htmlFor="lambda" className="block text-sm font-medium text-gray-300 mb-1">Tasa de llegada ($\lambda$)</label>
+                                <label htmlFor="lambda" className="block text-sm font-medium text-gray-300 mb-1">Tasa de llegada (λ)</label>
                                 <div className="bg-gray-700/40 border border-gray-600 p-3 rounded-md mb-2 flex items-start gap-3">
                                     <div className="flex-shrink-0 mt-0.5">
                                         <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-300" viewBox="0 0 20 20" fill="currentColor">
@@ -309,7 +309,7 @@ function Server_sin_cola_av() {
                             {/* Mostrar el campo μ sólo cuando el usuario avanzó al paso 2 */}
                             {step === 2 && (
                                 <div className="relative">
-                                    <label htmlFor="mu" className="block text-sm font-medium text-gray-300 mb-1">Tasa de servicio ($\mu$)</label>
+                                    <label htmlFor="mu" className="block text-sm font-medium text-gray-300 mb-1">Tasa de servicio (μ)</label>
                                     <div className="bg-gray-700/40 border border-gray-600 p-3 rounded-md mb-2 flex items-start gap-3">
                                         <div className="flex-shrink-0 mt-0.5">
                                             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-300" viewBox="0 0 20 20" fill="currentColor">
