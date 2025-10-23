@@ -63,12 +63,19 @@ function Server_sin_cola() {
 
         // Genera los datos para la tabla de distribución de probabilidad
         const probabilityTable = [];
-        // Se define un límite fijo para la tabla, ya que el input 'k' se ha eliminado
-        const maxNForTable = 20;
+        // Límite de seguridad alto para evitar bucles infinitos en casos extremos
+        const maxNForTable = 100; 
+        
         for (let n = 0; n <= maxNForTable; n++) {
             const Pn = (1 - rho) * Math.pow(rho, n); // Probabilidad de tener 'n' clientes en el sistema
             const Fn = 1 - Math.pow(rho, n + 1);    // Probabilidad acumulada (tener 'n' o menos clientes)
+            
             probabilityTable.push({ n, Pn, Fn });
+            
+            // LÓGICA DE PARADA: Frena cuando la probabilidad acumulada es >= 0.9999
+            if (Fn >= 0.9999) {
+                break;
+            }
         }
 
         // Almacena todos los resultados en el estado para que se muestren en la UI
@@ -125,13 +132,12 @@ function Server_sin_cola() {
                 {/* --- COLUMNA DERECHA: RESULTADOS (Métricas y Tabla) --- */}
                 <div className="md:w-2/3 print:w-full">
                     
-                    {/* --- INICIO DE LA SECCIÓN MODIFICADA --- */}
-                    {/* Esta sección está oculta en pantalla (hidden) y sólo se muestra con CSS de impresión (print:block) */}
+                    {/* --- INICIO DE LA SECCIÓN DE REPORTE PARA IMPRESIÓN (oculta en pantalla) --- */}
                     {results && (
                         <div className="hidden print:block mt-6 text-black">
                             <div className="max-w-4xl mx-auto p-4 border-t border-gray-300">
                                 <h1 className="text-3xl font-bold mb-2 text-center text-black">Reporte de Resultados - M/M/1</h1>
-                                <p className="text-center text-gray-700 mb-4">Este reporte contiene los parámetros usados, las métricas principales y la distribución de probabilidad. Cada métrica incluye una breve explicación.</p>
+                                <p className="text-center text-gray-700 mb-4">Este reporte contiene los parámetros usados, las métricas principales y la distribución de probabilidad.</p>
 
                                 {/* Parámetros */}
                                 <section className="mb-4">
@@ -167,7 +173,7 @@ function Server_sin_cola() {
                             </div>
                         </div>
                     )}
-                    {/* --- FIN DE LA SECCIÓN MODIFICADA --- */}
+                    {/* --- FIN DE LA SECCIÓN DE REPORTE PARA IMPRESIÓN --- */}
 
 
                     {/* Muestra los resultados o un mensaje inicial */}
@@ -188,7 +194,7 @@ function Server_sin_cola() {
                             </div>
 
                             {/* Sección de la Tabla de Probabilidad - Añadido break-inside-avoid */}
-                            <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 print:bg-white print:p-0 print:shadow-none print:border-none break-inside-avoid">
+                            <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 print:bg-white print:p-0 print:shadow-none print:border-none break-inside-avoid mt-8">
                                 <h2 className="text-xl font-bold mb-4 text-center text-emerald-400 print:text-xl print:text-black print:mt-8">Tabla de Distribución de Probabilidad</h2>
                                 <div className="overflow-x-auto">
                                     <table className="w-full text-left print:border-collapse text-sm">
