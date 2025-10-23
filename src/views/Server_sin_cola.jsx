@@ -64,7 +64,7 @@ function Server_sin_cola() {
         // Genera los datos para la tabla de distribución de probabilidad
         const probabilityTable = [];
         // Límite de seguridad alto para evitar bucles infinitos en casos extremos
-        const maxNForTable = 100; 
+        const maxNForTable = 1000; 
         
         for (let n = 0; n <= maxNForTable; n++) {
             const Pn = (1 - rho) * Math.pow(rho, n); // Probabilidad de tener 'n' clientes en el sistema
@@ -73,7 +73,7 @@ function Server_sin_cola() {
             probabilityTable.push({ n, Pn, Fn });
             
             // LÓGICA DE PARADA: Frena cuando la probabilidad acumulada es >= 0.9999
-            if (Fn >= 0.9999) {
+            if (Fn >= 0.999995) {
                 break;
             }
         }
