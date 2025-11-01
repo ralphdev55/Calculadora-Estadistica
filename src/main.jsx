@@ -11,6 +11,8 @@ import Manual from './views/Manual.jsx';
 import AsistenteVirtual from './views/AsistenteVirtual.jsx';
 import Server_con_cola_av from './views/Sever_con_cola_av.jsx';
 import Server_sin_cola_av from './views/Server_sin_cola_av.jsx';
+import Server_con_cola_varios from './views/Server_con_cola_varios.jsx';
+import Server_sin_cola_varios from './views/Sever_sin_cola_varios.jsx';
 
 const router = createBrowserRouter([
   {
@@ -24,7 +26,15 @@ const router = createBrowserRouter([
       {
         path: "manual", 
         element: <Manual />,
-        children: [ 
+        children: [
+          {
+            path: "serversincolavarios", 
+            element: <Server_sin_cola_varios />,
+          },
+          {
+            path: "serverconcolavarios", 
+            element: <Server_con_cola_varios />,
+          }, 
           {
             path: "serversincola", 
             element: <Server_sin_cola />,

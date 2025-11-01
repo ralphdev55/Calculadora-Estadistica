@@ -7,6 +7,16 @@ import { useState } from 'react';
 const calculators = [
     { name: 'Líneas de espera de un servidor sin límite de cola', path: 'serversincola', description: 'Modela y calcula métricas de un sistema con un solo servidor donde la cola es de capacidad infinita' }, 
     { name: 'Líneas de espera de un servidor con límite de cola', path: 'serverconcola', description: 'Modela y calcula métricas de un sistema con un solo servidor donde la cola tiene una capacidad máxima finita.' },
+    {
+    "name": "Líneas de espera de varios servidores sin límite de cola",
+    "path": "serversincolavarios",
+    "description": "Modela y calcula métricas (M/M/s) para un sistema con varios servidores donde la capacidad de la cola es infinita."
+    },
+    {
+    "name": "Líneas de espera de varios servidores con límite de cola",
+    "path": "serverconcolavarios",
+    "description": "Modela y calcula métricas (M/M/s/K) para un sistema con varios servidores donde la capacidad de la cola es finita y limitada."
+    } 
 ];
 
 function Manual() {
@@ -33,7 +43,8 @@ function Manual() {
                         Cálculo Manual 🔢
                         </h1>
                         <p className="text-lg text-gray-400">
-                        Introduce directamente los parámetros de tu sistema. <br></br>Modelo M/M/1 y M/M/K.
+                        Introduce directamente los parámetros de tu sistema. <br></br>
+                        Calculamos modelos M/M/1 (un servidor) y M/M/s (varios servidores).
                         </p>
                     </div>
 
