@@ -8,14 +8,14 @@ const calculators = [
     { name: 'Líneas de espera de un servidor sin límite de cola', path: 'serversincola', description: 'Modela y calcula métricas de un sistema con un solo servidor donde la cola es de capacidad infinita' }, 
     { name: 'Líneas de espera de un servidor con límite de cola', path: 'serverconcola', description: 'Modela y calcula métricas de un sistema con un solo servidor donde la cola tiene una capacidad máxima finita.' },
     {
-    "name": "Líneas de espera de varios servidores sin límite de cola",
-    "path": "serversincolavarios",
-    "description": "Modela y calcula métricas (M/M/s) para un sistema con varios servidores donde la capacidad de la cola es infinita."
+    name: "Líneas de espera de varios servidores sin límite de cola",
+    path: "serversincolavarios",
+    description: "Modela y calcula métricas (M/M/s) para un sistema con varios servidores donde la capacidad de la cola es infinita."
     },
     {
-    "name": "Líneas de espera de varios servidores con límite de cola",
-    "path": "serverconcolavarios",
-    "description": "Modela y calcula métricas (M/M/s/K) para un sistema con varios servidores donde la capacidad de la cola es finita y limitada."
+    name: "Líneas de espera de varios servidores con límite de cola",
+    path: "serverconcolavarios",
+    description: "Modela y calcula métricas (M/M/s/K) para un sistema con varios servidores donde la capacidad de la cola es finita y limitada."
     } 
 ];
 

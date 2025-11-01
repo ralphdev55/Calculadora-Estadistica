@@ -13,6 +13,11 @@ import Server_con_cola_av from './views/Sever_con_cola_av.jsx';
 import Server_sin_cola_av from './views/Server_sin_cola_av.jsx';
 import Server_con_cola_varios from './views/Server_con_cola_varios.jsx';
 import Server_sin_cola_varios from './views/Sever_sin_cola_varios.jsx';
+import Server_con_cola_varios_av from './views/Server_con_cola_varios_av.jsx';
+import Server_sin_cola_varios_av from './views/Sever_sin_cola_varios_av.jsx';
+
+
+
 
 const router = createBrowserRouter([
   {
@@ -49,6 +54,14 @@ const router = createBrowserRouter([
         path: "asistentevirtual",
         element: <AsistenteVirtual />,
         children: [ 
+          {
+            path: "serversincolavarios", 
+            element: <Server_sin_cola_varios_av />,
+          },
+          {
+            path: "serverconcolavarios", 
+            element: <Server_con_cola_varios_av />,
+          }, 
           {
             path: "serversincola", 
             element: <Server_sin_cola_av />,
