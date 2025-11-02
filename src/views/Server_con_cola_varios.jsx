@@ -2,13 +2,26 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 
-// Función para imprimir (fuera del componente para evitar que se recree en cada render)
+// --- FUNCIÓN AUXILIAR ---
+// Se necesita para las fórmulas de M/M/s/K
+const factorial = (n) => {
+    if (n < 0) return -1;
+    if (n === 0 || n === 1) return 1;
+    let result = 1;
+    for (let i = 2; i <= n; i++) {
+        result *= i;
+    }
+    return result;
+};
+
+// Función para imprimir
 const handlePrint = () => {
     window.print();
 };
 
 function Server_con_cola_varios() {
-    const [inputs, setInputs] = useState({ lambda: '', mu: '', k: '' });
+    // Añadido 's' a los inputs
+    const [inputs, setInputs] = useState({ lambda: '', mu: '', s: '', k: '' });
     const [results, setResults] = useState(null); 
     const [error, setError] = useState('');
 
@@ -23,57 +36,109 @@ function Server_con_cola_varios() {
     const handleCalculate = (e) => {
         e.preventDefault(); 
 
-        // 2. VALIDACIÓN Y CÁLCULO
+        // 1. OBTENER Y VALIDAR ENTRADAS
         const lambda = parseFloat(inputs.lambda);
         const mu = parseFloat(inputs.mu);
-        const k = parseInt(inputs.k, 10);
+        const s = parseInt(inputs.s, 10); // Número de servidores
+        const k = parseInt(inputs.k, 10); // Capacidad TOTAL del sistema
 
-        if (isNaN(lambda) || isNaN(mu) || isNaN(k) || lambda <= 0 || mu <= 0 || k <= 0) {
-            setError('Por favor, ingresa valores numéricos válidos y positivos.');
+        if (isNaN(lambda) || isNaN(mu) || isNaN(s) || isNaN(k) || lambda <= 0 || mu <= 0 || s <= 0 || k <= 0) {
+            setError('Por favor, ingresa valores numéricos positivos para λ, μ, s, y K.');
+            setResults(null);
+            return;
+        }
+
+        if (s !== parseFloat(inputs.s) || k !== parseFloat(inputs.k)) {
+            setError('El número de servidores (s) y la capacidad (K) deben ser enteros.');
+            setResults(null);
+            return;
+        }
+
+        // Validación clave: K debe ser al menos tan grande como s
+        if (k < s) {
+            setError('La capacidad total (K) debe ser mayor o igual al número de servidores (s).');
             setResults(null);
             return;
         }
         
         setError(''); // Limpia errores
 
-        // Fórmulas del modelo M/M/1/K (cola finita)
-        const rho = lambda / mu;
+        // --- 2. CÁLCULO DE MÉTRICAS M/M/s/K ---
+        
+        const r = lambda / mu;
+        const rho = r / s;
         let P0;
 
-        if (rho === 1) {
-            P0 = 1 / (k + 1);
-        } else {
-            P0 = (1 - rho) / (1 - Math.pow(rho, k + 1));
+        // --- Cálculo de P0 (Probabilidad de 0 clientes) ---
+        let sum_part1 = 0;
+        for (let n = 0; n < s; n++) {
+            sum_part1 += Math.pow(r, n) / factorial(n);
         }
 
-        const Pk = P0 * Math.pow(rho, k);
-        const lambdaEfectiva = lambda * (1 - Pk);
-        const lambdaPerdida = lambda - lambdaEfectiva;
+        let sum_part2;
+        const part2_factor = Math.pow(r, s) / factorial(s);
 
-        let Ls;
+        // Caso especial: rho = 1 (lambda = s * mu)
         if (rho === 1) {
-            Ls = k / 2;
-        } else {
-            Ls = rho * (1 - (k + 1) * Math.pow(rho, k) + k * Math.pow(rho, k + 1)) / ((1 - rho) * (1 - Math.pow(rho, k + 1)));
+            sum_part2 = part2_factor * (k - s + 1);
+        } 
+        // Caso normal: rho != 1
+        else {
+            sum_part2 = part2_factor * ((1 - Math.pow(rho, k - s + 1)) / (1 - rho));
         }
-        
-        const Ws = Ls / lambdaEfectiva;
-        const Wq = Ws - (1 / mu);
-        const Lq = lambdaEfectiva * Wq;
-        
-        // Generar la tabla de probabilidad
+
+        P0 = 1 / (sum_part1 + sum_part2);
+
+        // --- Cálculo de la tabla de probabilidad (Pn) y Pk ---
         const probabilityTable = [];
         let accumulatedFn = 0;
+        let Pk = 0; // Probabilidad de sistema lleno (n=k)
+
         for (let n = 0; n <= k; n++) {
-            const Pn = P0 * Math.pow(rho, n);
+            let Pn;
+            
+            // Fórmula para n < s
+            if (n < s) {
+                Pn = (Math.pow(r, n) / factorial(n)) * P0;
+            } 
+            // Fórmula para s <= n <= k
+            else {
+                Pn = (Math.pow(r, n) / (factorial(s) * Math.pow(s, n - s))) * P0;
+            }
+            
             accumulatedFn += Pn;
             probabilityTable.push({ n, Pn, Fn: accumulatedFn });
+
+            if (n === k) {
+                Pk = Pn; // Guarda la probabilidad de que el sistema esté lleno
+            }
         }
+
+        // --- Cálculo de Lq (Clientes en cola) ---
+        let Lq;
+        // Caso especial: rho = 1
+        if (rho === 1) {
+            Lq = P0 * (part2_factor) * (( (k - s) * (k - s + 1) ) / 2);
+        }
+        // Caso normal: rho != 1
+        else {
+            Lq = P0 * (part2_factor * rho / Math.pow(1 - rho, 2)) * (1 - Math.pow(rho, k - s + 1) - (1 - rho) * (k - s + 1) * Math.pow(rho, k - s));
+        }
+
+        // --- Cálculo de métricas restantes usando Little's Law ---
+        const lambdaEfectiva = lambda * (1 - Pk);
+        const lambdaPerdida = lambda - lambdaEfectiva;
+        
+        // Wq, Ws, Ls se calculan sobre la tasa EFECTIVA
+        const Wq = Lq / lambdaEfectiva;
+        const Ws = Wq + (1 / mu);
+        const Ls = lambdaEfectiva * Ws;
 
         // 3. ACTUALIZAR ESTADO PARA MOSTRAR RESULTADOS
         setResults({ 
             lambda: lambda.toFixed(3), 
             mu: mu.toFixed(3),
+            s: s,
             k: k,
             rho, Ls, Lq, Ws, Wq, lambdaEfectiva, lambdaPerdida, Pk, probabilityTable 
         });
@@ -81,7 +146,6 @@ function Server_con_cola_varios() {
 
     // Componente reutilizable para las tarjetas de métricas
     const MetricCard = ({ label, value }) => (
-        // Corregí **break-inside-avoid** a la clase correcta de Tailwind: break-inside-avoid
         <div className="bg-gray-800/70 p-3 rounded-lg text-center print:bg-gray-200 print:text-black print:border print:border-gray-400 break-inside-avoid">
             <p className="text-xs text-gray-400 print:text-gray-600 font-medium">{label}</p>
             <p className="text-xl font-bold text-emerald-400 print:text-emerald-700 mt-1">{value}</p>
@@ -89,39 +153,42 @@ function Server_con_cola_varios() {
     );
 
     return (
-        // Contenedor principal con max-w-6xl para aprovechar más el espacio
         <div className="max-w-6xl mx-auto text-white print:text-black print:bg-white p-4">
             
-            {/* Contenedor principal para la estructura de dos columnas en escritorio */}
             <div className="flex flex-col md:flex-row gap-8">
 
-                {/* --- COLUMNA 1: FORMULARIO DE ENTRADA (OCULTAR EN IMPRESIÓN) --- */}
+                {/* --- COLUMNA 1: FORMULARIO DE ENTRADA --- */}
                 <div className="md:w-1/3 print:hidden">
                     <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 h-full">
                         <h1 className="text-2xl font-extrabold mb-2 text-center text-white">
-                            M/M/1/K
+                            M/M/s/K
                         </h1>
-                        <p className="text-gray-400 text-center mb-6 text-sm">Un Servidor, Cola Finita (Capacidad K)</p>
+                        <p className="text-gray-400 text-center mb-6 text-sm">Varios Servidores, Cola Finita (Capacidad K)</p>
                         
                         <form onSubmit={handleCalculate}>
                             <div className="space-y-4 mb-6">
                                 <div>
                                     <label htmlFor="lambda" className="block text-sm font-medium text-gray-300 mb-1">Tasa de llegada (λ)</label>
-                                    <input type="number" name="lambda" id="lambda" value={inputs.lambda} onChange={handleInputChange} placeholder="Ej: 10" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                                    <input type="number" step="any" name="lambda" id="lambda" value={inputs.lambda} onChange={handleInputChange} placeholder="Ej: 10" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
                                 </div>
                                 <div>
-                                    <label htmlFor="mu" className="block text-sm font-medium text-gray-300 mb-1">Tasa de servicio (μ)</label>
-                                    <input type="number" name="mu" id="mu" value={inputs.mu} onChange={handleInputChange} placeholder="Ej: 12" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                                    <label htmlFor="mu" className="block text-sm font-medium text-gray-300 mb-1">Tasa de servicio (μ) <span className='text-xs text-gray-400'>(por servidor)</span></label>
+                                    <input type="number" step="any" name="mu" id="mu" value={inputs.mu} onChange={handleInputChange} placeholder="Ej: 6" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
                                 </div>
                                 <div>
-                                    <label htmlFor="k" className="block text-sm font-medium text-gray-300 mb-1">Capacidad de la cola (K)</label>
-                                    <input type="number" name="k" id="k" value={inputs.k} onChange={handleInputChange} placeholder="Ej: 5" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                                    <label htmlFor="s" className="block text-sm font-medium text-gray-300 mb-1">Número de servidores (s)</label>
+                                    <input type="number" step="1" name="s" id="s" value={inputs.s} onChange={handleInputChange} placeholder="Ej: 2" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                                </div>
+                                <div>
+                                    {/* Etiqueta corregida para mayor claridad */}
+                                    <label htmlFor="k" className="block text-sm font-medium text-gray-300 mb-1">Capacidad Total del Sistema (K)</label>
+                                    <input type="number" step="1" name="k" id="k" value={inputs.k} onChange={handleInputChange} placeholder="Ej: 5 (s + cola)" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
                                 </div>
                             </div>
                             <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300">
                                 Calcular
                             </button>
-                            {error && <p className="text-red-400 text-center mt-4">{error}</p>}
+                            {error && <p className="text-red-400 text-center mt-4 text-sm">{error}</p>}
                         </form>
                     </div>
                 </div>
@@ -129,13 +196,12 @@ function Server_con_cola_varios() {
                 {/* --- COLUMNA 2: RESULTADOS (MÉTRICAS y TABLA) --- */}
                 <div className="md:w-2/3 print:w-full">
                     
-                    {/* --- INICIO DE LA SECCIÓN MODIFICADA --- */}
-                    {/* Esta es la nueva sección de reporte para impresión, copiada del primer archivo */}
+                    {/* --- REPORTE PARA IMPRESIÓN --- */}
                     {results && (
                         <div className="hidden print:block mt-6 text-black">
                             <div className="max-w-4xl mx-auto p-4 border-t border-gray-300">
-                                <h1 className="text-3xl font-bold mb-2 text-center text-black">Reporte de Resultados - M/M/1/K</h1>
-                                <p className="text-center text-gray-700 mb-4">Este reporte contiene los parámetros usados, las métricas principales y la distribución de probabilidad. Cada métrica incluye una breve explicación.</p>
+                                <h1 className="text-3xl font-bold mb-2 text-center text-black">Reporte de Resultados - M/M/s/K</h1>
+                                <p className="text-center text-gray-700 mb-4">Este reporte contiene los parámetros usados, las métricas principales y la distribución de probabilidad.</p>
 
                                 {/* Parámetros */}
                                 <section className="mb-4">
@@ -147,11 +213,15 @@ function Server_con_cola_varios() {
                                                 <td className="py-1">{results.lambda}</td>
                                             </tr>
                                             <tr>
-                                                <td className="py-1 font-medium">μ (tasa de servicio)</td>
+                                                <td className="py-1 font-medium">μ (tasa de servicio por servidor)</td>
                                                 <td className="py-1">{results.mu}</td>
                                             </tr>
                                             <tr>
-                                                <td className="py-1 font-medium">K (Capacidad)</td>
+                                                <td className="py-1 font-medium">s (Número de servidores)</td>
+                                                <td className="py-1">{results.s}</td>
+                                            </tr>
+                                            <tr>
+                                                <td className="py-1 font-medium">K (Capacidad Total del Sistema)</td>
                                                 <td className="py-1">{results.k}</td>
                                             </tr>
                                         </tbody>
@@ -162,20 +232,23 @@ function Server_con_cola_varios() {
                                 <section className="mb-4">
                                     <h3 className="font-semibold">Explicaciones</h3>
                                     <ol className="list-decimal ml-5 text-sm">
-                                        <li><strong>λ:</strong> tasa promedio de llegadas por unidad de tiempo.</li>
-                                        <li><strong>μ:</strong> tasa promedio de servicio por unidad de tiempo.</li>
-                                        <li><strong>ρ = λ/μ:</strong> fracción del tiempo que el servidor está ocupado; valores cercanos a 1 indican congestión.</li>
-                                        <li><strong>Pk:</strong> probabilidad de que una llegada sea rechazada debido a capacidad K.</li>
-                                        <li><strong>Ls:</strong> número promedio de clientes en el sistema (esperando + en servicio).</li>
-                                        <li><strong>Lq:</strong> número promedio de clientes esperando en la cola.</li>
-                                        <li><strong>Ws:</strong> tiempo promedio en el sistema (espera + servicio).</li>
-                                        <li><strong>Wq:</strong> tiempo promedio de espera en cola.</li>
+                                        <li><strong>λ:</strong> tasa promedio de llegadas.</li>
+                                        <li><strong>μ:</strong> tasa promedio de servicio por servidor.</li>
+                                        <li><strong>s:</strong> número de servidores.</li>
+                                        <li><strong>K:</strong> capacidad máxima total del sistema.</li>
+                                        <li><strong>ρ = λ/(s*μ):</strong> utilización del servidor (tráfico ofrecido).</li>
+                                        <li><strong>Pk:</strong> probabilidad de que el sistema esté lleno (n=K) y rechace clientes.</li>
+                                        <li><strong>λ Efectiva:</strong> tasa real de clientes que entran al sistema.</li>
+                                        <li><strong>Ls:</strong> número promedio de clientes en el sistema.</li>
+                                        <li><strong>Lq:</strong> número promedio de clientes en la cola.</li>
+                                        <li><strong>Ws:</strong> tiempo promedio en el sistema.</li>
+                                        <li><strong>Wq:</strong> tiempo promedio en la cola.</li>
                                     </ol>
                                 </section>
                             </div>
                         </div>
                     )}
-                    {/* --- FIN DE LA SECCIÓN MODIFICADA --- */}
+                    {/* --- FIN REPORTE IMPRESIÓN --- */}
 
 
                     {/* Contenedor de Resultados (Visible en pantalla) */}
@@ -183,7 +256,6 @@ function Server_con_cola_varios() {
                         <div className="space-y-8">
                             
                             {/* 1. Métricas de Rendimiento */}
-                            {/* Corregí **break-inside-avoid** a la clase correcta de Tailwind: break-inside-avoid */}
                             <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 print:bg-white print:p-0 print:shadow-none print:border-none break-inside-avoid">
                                 <h2 className="text-xl font-bold mb-4 text-center text-emerald-400 print:text-xl print:text-black">Métricas de Rendimiento</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 print:gap-4 print:grid-cols-4">
@@ -228,13 +300,13 @@ function Server_con_cola_varios() {
                         </div>
                     ) : (
                         <div className="flex items-center justify-center h-full bg-gray-800 p-10 rounded-xl shadow-2xl border border-gray-700 text-center">
-                            <p className="text-gray-400 text-lg">Ingresa los datos en el formulario para ver las métricas del sistema M/M/1/K.</p>
+                            <p className="text-gray-400 text-lg">Ingresa los datos en el formulario para ver las métricas del sistema M/M/s/K.</p>
                         </div>
                     )}
                 </div>
             </div>
 
-            {/* --- BOTONES INFERIORES (OCULTAR EN IMPRESIÓN) --- */}
+            {/* --- BOTONES INFERIORES --- */}
             <div className="flex justify-between items-center mt-8 print:hidden">
                 <Link 
                     to="/" 
