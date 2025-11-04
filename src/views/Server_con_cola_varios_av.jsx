@@ -445,24 +445,7 @@ function Server_con_cola_varios() {
                 </div>
             </div>
 
-            {/* --- BOTONES INFERIORES --- */}
-            <div className="flex justify-between items-center mt-8 print:hidden">
-                <Link 
-                    to="/" 
-                    className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300"
-                >
-                    &larr; Volver al menú
-                </Link>
-                
-                {results && (
-                    <button 
-                        onClick={handlePrint} 
-                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300"
-                    >
-                        Imprimir Resultados 🖨️
-                    </button>
-                )}
-            </div>
+            
             {/* PANEL: Guía de interpretación (oculta en impresión) */}
             <div className="mt-6 print:hidden max-w-4xl mx-auto">
                 <div className="flex items-center justify-between mb-3">
@@ -510,6 +493,25 @@ function Server_con_cola_varios() {
                             </div>
                         </div>
                     </div>
+                )}
+            </div>
+
+            {/* --- BOTONES INFERIORES --- */}
+            <div className="flex justify-between items-center mt-8 print:hidden">
+                <Link 
+                    to="/" 
+                    className="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300"
+                >
+                    &larr; Volver al menú
+                </Link>
+                
+                {results && (
+                    <button 
+                        onClick={handlePrint} 
+                        className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-lg transition-colors duration-300"
+                    >
+                        Imprimir Resultados 🖨️
+                    </button>
                 )}
             </div>
         </div>
