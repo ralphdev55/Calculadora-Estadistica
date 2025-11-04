@@ -162,6 +162,10 @@ function Server_con_cola_av() {
     const [originalResults, setOriginalResults] = useState(null);
     const [simulated, setSimulated] = useState(false);
 
+    // Estados para entrada por pop-ups (wizard en modal)
+    const [showStepModal, setShowStepModal] = useState(false);
+    const [modalStep, setModalStep] = useState(1); // 1=lambda,2=mu,3=k
+
     const guideSteps = [
         { key: 'rho', title: 'Utilización (ρ)', desc: 'ρ = λ / μ — indica la fracción del tiempo que el servidor está ocupado. Valores cercanos a 1 implican congestionamiento.', recommendation: 'Si ρ está cerca de 1, aumenta μ o reduce λ para mejorar rendimiento.', target: 'lambda', delta: 1 },
         { key: 'Ls', title: 'Clientes en Sistema (Ls)', desc: 'Ls es el número promedio de clientes en el sistema. A mayor λ y ρ, mayor Ls.', recommendation: 'Reducir λ o aumentar μ para bajar Ls.', target: 'lambda', delta: 1 },
@@ -172,35 +176,9 @@ function Server_con_cola_av() {
     ];
 
 
-    const simulateChange = (field, delta) => {
-        if (!results) return;
-        if (!originalResults) setOriginalResults(results);
-        
-        // Usamos los valores numéricos del estado 'results' (lambda, mu, k)
-        let newLambda = parseFloat(results.lambda);
-        let newMu = parseFloat(results.mu);
-        let newK = results.k;
-
-        if (field === 'lambda') newLambda = Math.max(0.0001, newLambda + delta);
-        if (field === 'mu') newMu = Math.max(0.0001, newMu + delta);
-        if (field === 'k') newK = Math.max(1, newK + delta);
-        
-        // --- VALIDACIÓN CORREGIDA ---
-        // Se eliminó la validación "if (newLambda >= newMu)"
-        // Este modelo M/M/1/K es válido incluso si lambda > mu.
-        
-        const sim = computeResultsForK(newLambda, newMu, newK);
-        
-        if (!sim) { 
-            setError('Simulación inválida'); 
-            return; 
-        }
-
-        // Guardamos los resultados numéricos para la próxima simulación
-        setResults(sim);
-        setSimulated(true);
-        setError('');
-    };
+    // Nota: la funcionalidad de simulación fue retirada por petición del usuario.
+    // Se mantiene la función computeResultsForK para cálculos directos, pero
+    // se eliminaron los controles UI que permitían "Simular cambio".
 
     const restoreOriginal = () => {
         if (originalResults) {
@@ -209,6 +187,74 @@ function Server_con_cola_av() {
             setSimulated(false);
             setError('');
         }
+    };
+
+    // --- Handlers para pop-up wizard ---
+    const openWizard = () => {
+        setModalStep(1);
+        setShowStepModal(true);
+        setShowIntro(false);
+        setAssistantActive(false);
+    };
+
+    const handleModalNext = () => {
+        // Validar campo actual y avanzar
+        if (modalStep === 1) {
+            const v = parseFloat(inputs.lambda);
+            if (isNaN(v) || v <= 0) { setError('Por favor, ingresa un valor numérico y positivo para λ.'); return; }
+            setError('');
+            setModalStep(2);
+            return;
+        }
+        if (modalStep === 2) {
+            const v = parseFloat(inputs.mu);
+            if (isNaN(v) || v <= 0) { setError('Por favor, ingresa un valor numérico y positivo para μ.'); return; }
+            setError('');
+            setModalStep(3);
+            return;
+        }
+        if (modalStep === 3) {
+            const v = parseInt(inputs.k, 10);
+            if (isNaN(v) || v <= 0) { setError('Por favor, ingresa un valor numérico y positivo para K.'); return; }
+            setError('');
+            // Enviar cálculo final
+            // Reutilizamos handleCalculate: simulamos evento con preventDefault
+            handleCalculate({ preventDefault: () => {} });
+            setShowStepModal(false);
+            return;
+        }
+    };
+
+    const handleModalClose = () => {
+        setShowStepModal(false);
+        setShowIntro(false);
+        setAssistantActive(true);
+        setError('');
+    };
+
+    // Foco automático al abrir el modal o al cambiar de paso
+    useEffect(() => {
+        if (!showStepModal) return;
+        if (modalStep === 1) lambdaRef.current?.focus();
+        if (modalStep === 2) muRef.current?.focus();
+        if (modalStep === 3) kRef.current?.focus();
+    }, [showStepModal, modalStep]);
+
+    // Validación para habilitar el botón siguiente en modal
+    const isModalInputValid = () => {
+        if (modalStep === 1) {
+            const v = parseFloat(inputs.lambda);
+            return !isNaN(v) && v > 0;
+        }
+        if (modalStep === 2) {
+            const v = parseFloat(inputs.mu);
+            return !isNaN(v) && v > 0;
+        }
+        if (modalStep === 3) {
+            const v = parseInt(inputs.k, 10);
+            return !isNaN(v) && v > 0;
+        }
+        return false;
     };
 
     return (
@@ -238,12 +284,105 @@ function Server_con_cola_av() {
                                         </div>
                                     </div>
                                     <div className="mt-4 flex justify-end gap-2">
-                                        <button onClick={() => setShowIntro(false)} className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded">Cerrar</button>
-                                        <button onClick={() => { setShowIntro(false); setStep(1); }} className="bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded">Empezar</button>
-                                    </div>
+                                            <button onClick={() => setShowIntro(false)} className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded">Cerrar</button>
+                                            <button onClick={() => openWizard()} className="bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded">Empezar</button>
+                                        </div>
                                 </div>
                             </div>
                         )}
+
+                            {/* Pop-up wizard: solicita λ → μ → K en modal secuencial */}
+                            {showStepModal && (
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                                    <div className="absolute inset-0 bg-black/60" onClick={handleModalClose}></div>
+                                    <div className="relative bg-gray-800 rounded-xl p-6 max-w-md w-full shadow-2xl border border-gray-700 animate-scale-in">
+                                        <h3 className="text-lg font-bold text-white mb-2">Paso {modalStep} de 3</h3>
+                                        {modalStep === 1 && (
+                                            <div>
+                                                <div className="bg-gray-700/40 border border-gray-600 p-3 rounded-md mb-2 flex items-start gap-3">
+                                                    <div className="flex-shrink-0 mt-0.5">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-300" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3a1 1 0 00.293.707l2 2a1 1 0 101.414-1.414L11 9.586V7z" clipRule="evenodd" />
+                                                        </svg>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-200 font-medium">Explicación</p>
+                                                        <p className="text-sm text-gray-300">λ es la tasa promedio de llegadas por unidad de tiempo (clientes por unidad de tiempo). Debe ser un número positivo.</p>
+                                                    </div>
+                                                </div>
+                                                <input
+                                                    ref={lambdaRef}
+                                                    name="lambda"
+                                                    type="number"
+                                                    step="any"
+                                                    placeholder="Ej: 4"
+                                                    value={inputs.lambda}
+                                                    onChange={handleInputChange}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleModalNext(); } }}
+                                                    className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white"
+                                                />
+                                            </div>
+                                        )}
+                                        {modalStep === 2 && (
+                                            <div>
+                                                <div className="bg-gray-700/40 border border-gray-600 p-3 rounded-md mb-2 flex items-start gap-3">
+                                                    <div className="flex-shrink-0 mt-0.5">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-300" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.974a1 1 0 00.95.69h4.18c.969 0 1.371 1.24.588 1.81l-3.388 2.462a1 1 0 00-.364 1.118l1.287 3.974c.3.921-.755 1.688-1.54 1.118L10 15.347l-3.388 2.462c-.784.57-1.839-.197-1.54-1.118l1.287-3.974a1 1 0 00-.364-1.118L2.608 9.401c-.783-.57-.38-1.81.588-1.81h4.18a1 1 0 00.95-.69L9.049 2.927z"/>
+                                                        </svg>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-200 font-medium">Explicación</p>
+                                                        <p className="text-sm text-gray-300">μ es la tasa promedio de servicio. A diferencia del M/M/1, no necesita ser mayor que λ.</p>
+                                                    </div>
+                                                </div>
+                                                <input
+                                                    ref={muRef}
+                                                    name="mu"
+                                                    type="number"
+                                                    step="any"
+                                                    placeholder="Ej: 6"
+                                                    value={inputs.mu}
+                                                    onChange={handleInputChange}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleModalNext(); } }}
+                                                    className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white"
+                                                />
+                                            </div>
+                                        )}
+                                        {modalStep === 3 && (
+                                            <div>
+                                                <div className="bg-gray-700/40 border border-gray-600 p-3 rounded-md mb-2 flex items-start gap-3">
+                                                    <div className="flex-shrink-0 mt-0.5">
+                                                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-300" viewBox="0 0 20 20" fill="currentColor">
+                                                            <path d="M3 3a1 1 0 000 2h1v10H3a1 1 0 100 2h14a1 1 0 100-2h-1V5h1a1 1 0 100-2H3z"/>
+                                                        </svg>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-xs text-gray-200 font-medium">Explicación</p>
+                                                        <p className="text-sm text-gray-300">K es la capacidad total del sistema (fila + servicio). Por ejemplo, 4 en espera + 1 en servicio = 5.</p>
+                                                    </div>
+                                                </div>
+                                                <input
+                                                    ref={kRef}
+                                                    name="k"
+                                                    type="number"
+                                                    step="1"
+                                                    placeholder="Ej: 5"
+                                                    value={inputs.k}
+                                                    onChange={handleInputChange}
+                                                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleModalNext(); } }}
+                                                    className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white"
+                                                />
+                                            </div>
+                                        )}
+
+                                        <div className="mt-4 flex justify-end gap-2">
+                                            <button onClick={handleModalClose} className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded">Cancelar</button>
+                                            <button onClick={handleModalNext} disabled={!isModalInputValid()} className={`py-2 px-4 rounded ${isModalInputValid() ? 'bg-emerald-600 hover:bg-emerald-700 text-white' : 'bg-gray-600 text-gray-300 cursor-not-allowed'}`}>{modalStep < 3 ? 'Siguiente' : 'Calcular'}</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                         <h1 className="text-2xl font-extrabold mb-2 text-center text-white">
                             M/M/1/K
@@ -300,27 +439,10 @@ function Server_con_cola_av() {
                                         </div>
                                     )}
                                     <div className="flex justify-end mt-2">
-                                        {step === 1 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    const lambdaVal = parseFloat(inputs.lambda);
-                                                    if (isNaN(lambdaVal) || lambdaVal <= 0) {
-                                                        setError('Por favor, ingresa un valor numérico y positivo para λ antes de continuar.');
-                                                        setResults(null);
-                                                        return;
-                                                    }
-                                                    setError('');
-                                                    setStep(2);
-                                                }}
-                                                className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded-md text-sm"
-                                            >Siguiente</button>
-                                        )}
+                                        {/* En la columna izquierda ya no es necesario el botón "Siguiente"; Enter mueve el foco */}
                                     </div>
                                 </div>
-
-                                {/* Paso 2: μ (se muestra solo si step >= 2) */}
-                                {step >= 2 && (
+                                {/* Paso 2: μ (ahora siempre visible en la columna izquierda) */}
                                     <div className="relative">
                                         <label htmlFor="mu" className="block text-sm font-medium text-gray-300 mb-1">Tasa de servicio (μ)</label>
                                         <div className="bg-gray-700/40 border border-gray-600 p-3 rounded-md mb-2 flex items-start gap-3">
@@ -347,49 +469,21 @@ function Server_con_cola_av() {
                                                     e.preventDefault();
                                                     const muVal = parseFloat(inputs.mu);
                                                     if (isNaN(muVal) || muVal <= 0) {
-                                                        setError('Por favor, ingresa un valor numérico y positivo para μ antes de continuar.');
+                                                        setError('Por favor, ingresa un valor numérico y positivo para μ.');
                                                         setResults(null);
                                                         return;
                                                     }
                                                     setError('');
-                                                    setStep(3);
+                                                    // mover foco a k
+                                                    kRef.current?.focus();
                                                 }
                                             }}
                                             placeholder="Ej: 6"
                                             className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
                                         />
-
-                                        {assistantActive && !showIntro && step === 2 && (
-                                            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 z-40 hidden md:block">
-                                                <div className="bg-emerald-600 text-white p-2 rounded-lg shadow-lg animate-float-up">
-                                                    <p className="text-sm font-medium">Paso 2</p>
-                                                    <p className="text-xs mt-1">Introduce μ y presiona Enter o usa el botón Siguiente.</p>
-                                                </div>
-                                            </div>
-                                        )}
-                                        <div className="flex justify-end mt-2">
-                                            {step === 2 && (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        const muVal = parseFloat(inputs.mu);
-                                                        if (isNaN(muVal) || muVal <= 0) {
-                                                            setError('Por favor, ingresa un valor numérico y positivo para μ antes de continuar.');
-                                                            setResults(null);
-                                                            return;
-                                                        }
-                                                        setError('');
-                                                        setStep(3);
-                                                    }}
-                                                    className="bg-blue-600 hover:bg-blue-700 text-white font-medium py-1 px-3 rounded-md text-sm"
-                                                >Siguiente</button>
-                                            )}
-                                        </div>
                                     </div>
-                                )}
 
-                                {/* Paso 3: k (solo si step === 3) */}
-                                {step === 3 && (
+                                {/* Paso 3: k (ahora siempre visible en la columna izquierda) */}
                                     <div className="relative">
                                         <label htmlFor="k" className="block text-sm font-medium text-gray-300 mb-1">Capacidad del Sistema (K)</label>
                                         <div className="bg-gray-700/40 border border-gray-600 p-3 rounded-md mb-2 flex items-start gap-3">
@@ -420,17 +514,7 @@ function Server_con_cola_av() {
                                             placeholder="Ej: 5"
                                             className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"
                                         />
-
-                                        {assistantActive && !showIntro && (
-                                            <div className="absolute left-full ml-4 top-1/2 -translate-y-1/2 w-64 z-40 hidden md:block">
-                                                <div className="bg-emerald-600 text-white p-2 rounded-lg shadow-lg animate-float-up">
-                                                    <p className="text-sm font-medium">Paso 3</p>
-                                                    <p className="text-xs mt-1">Introduce K y presiona Enter para calcular.</p>
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
-                                )}
                             </div>
 
                             <div className="flex gap-2">
@@ -553,7 +637,7 @@ function Server_con_cola_av() {
                                     <h3 className="text-lg font-bold text-emerald-300">Guía de interpretación</h3>
                                     <div className="flex items-center gap-2">
                                         <button onClick={() => { setShowGuide(!showGuide); if (!showGuide) setGuideStep(0); }} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">{showGuide ? 'Cerrar guía' : 'Abrir guía'}</button>
-                                        {simulated && <button onClick={restoreOriginal} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Restaurar</button>}
+                                        <button onClick={() => openWizard()} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded print:hidden">Abrir asistente</button>
                                     </div>
                                 </div>
 
@@ -568,7 +652,6 @@ function Server_con_cola_av() {
                                                 <div className="flex gap-2 mt-4">
                                                     <button onClick={() => setGuideStep(Math.max(0, guideStep - 1))} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">Anterior</button>
                                                     <button onClick={() => setGuideStep(Math.min(guideSteps.length - 1, guideStep + 1))} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded">Siguiente</button>
-                                                    <button onClick={() => simulateChange(guideSteps[guideStep].target, guideSteps[guideStep].delta)} className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded">Simular cambio</button>
                                                 </div>
                                             </div>
 

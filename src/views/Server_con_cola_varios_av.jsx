@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useState } from 'react';
 
@@ -24,6 +24,71 @@ function Server_con_cola_varios() {
     const [inputs, setInputs] = useState({ lambda: '', mu: '', s: '', k: '' });
     const [results, setResults] = useState(null); 
     const [error, setError] = useState('');
+
+    // --- Asistente virtual / wizard / guía ---
+    const [step, setStep] = useState(1);
+    const [showIntro, setShowIntro] = useState(true);
+    const [assistantActive, setAssistantActive] = useState(true);
+    const [showCongrats, setShowCongrats] = useState(false);
+
+    const lambdaRef = useRef(null);
+    const muRef = useRef(null);
+    const sRef = useRef(null);
+    const kRef = useRef(null);
+
+    const [showStepModal, setShowStepModal] = useState(false);
+    const [modalStep, setModalStep] = useState(1);
+
+    const [showGuide, setShowGuide] = useState(false);
+    const [guideStep, setGuideStep] = useState(0);
+
+    const guideSteps = [
+        { key: 'rho', title: 'Utilización (ρ)', desc: 'ρ = λ/(s·μ) — fracción del tiempo que un servidor está ocupado.', recommendation: 'Si ρ es cercano a 1, aumenta s o μ, o reduce λ.' },
+        { key: 'Ls', title: 'Clientes en Sistema (Ls)', desc: 'Número promedio de clientes en el sistema (esperando + en servicio).', recommendation: 'Reducir λ o aumentar s/μ para bajar Ls.' },
+        { key: 'Lq', title: 'Clientes en Cola (Lq)', desc: 'Número promedio de clientes esperando en la cola.', recommendation: 'Incrementar servidores o capacidad de servicio.' },
+        { key: 'Wq', title: 'Tiempo en Cola (Wq)', desc: 'Tiempo promedio de espera en cola.', recommendation: 'Si Wq es alto, aumenta s o μ.' },
+        { key: 'Ws', title: 'Tiempo en Sistema (Ws)', desc: 'Tiempo promedio total en el sistema.', recommendation: 'Mejorar capacidad de servicio o reducir carga.' },
+        { key: 'Pk', title: 'Prob. Rechazo (Pk)', desc: 'Probabilidad de que el sistema esté lleno y rechace llegadas.', recommendation: 'Aumentar K o s para reducir Pk.' }
+    ];
+
+    const openWizard = () => { setModalStep(1); setShowStepModal(true); setShowIntro(false); setAssistantActive(false); };
+    const handleModalNext = () => {
+        if (modalStep === 1) {
+            const v = parseFloat(inputs.lambda);
+            if (isNaN(v) || v <= 0) { setError('Por favor, ingresa λ válida.'); return; }
+            setError(''); setModalStep(2); return;
+        }
+        if (modalStep === 2) {
+            const v = parseFloat(inputs.mu);
+            if (isNaN(v) || v <= 0) { setError('Por favor, ingresa μ válida.'); return; }
+            setError(''); setModalStep(3); return;
+        }
+        if (modalStep === 3) {
+            const v = parseInt(inputs.s, 10);
+            if (isNaN(v) || v <= 0) { setError('Por favor, ingresa s entero positivo.'); return; }
+            setError(''); setModalStep(4); return;
+        }
+        if (modalStep === 4) {
+            const v = parseInt(inputs.k, 10);
+            if (isNaN(v) || v <= 0) { setError('Por favor, ingresa K entero positivo.'); return; }
+            setError(''); handleCalculate({ preventDefault: () => {} }); setShowStepModal(false); return;
+        }
+    };
+    const handleModalClose = () => { setShowStepModal(false); setShowIntro(false); setAssistantActive(true); setError(''); };
+
+    useEffect(() => {
+        if (!showStepModal) return;
+        if (modalStep === 1) lambdaRef.current?.focus();
+        if (modalStep === 2) muRef.current?.focus();
+        if (modalStep === 3) sRef.current?.focus();
+        if (modalStep === 4) kRef.current?.focus();
+    }, [showStepModal, modalStep]);
+
+    useEffect(() => {
+        if (!showCongrats) return;
+        const t = setTimeout(() => setShowCongrats(false), 3000);
+        return () => clearTimeout(t);
+    }, [showCongrats]);
 
 
     const handleInputChange = (e) => {
@@ -159,7 +224,81 @@ function Server_con_cola_varios() {
 
                 {/* --- COLUMNA 1: FORMULARIO DE ENTRADA --- */}
                 <div className="md:w-1/3 print:hidden">
-                    <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 h-full">
+                    <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 h-full relative">
+                        {/* Modal introductorio del asistente "Calculon" */}
+                        {showIntro && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:hidden">
+                                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowIntro(false)}></div>
+                                <div className="relative bg-gray-800 rounded-xl p-6 max-w-md w-full shadow-2xl border border-gray-700 animate-scale-in">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-emerald-500 rounded-full p-3">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.974a1 1 0 00.95.69h4.18c.969 0 1.371 1.24.588 1.81l-3.388 2.462a1 1 0 00-.364 1.118l1.287 3.974c.3.921-.755 1.688-1.54 1.118L10 15.347l-3.388 2.462c-.784.57-1.839-.197-1.54-1.118l1.287-3.974a1 1 0 00-.364-1.118L2.608 9.401c-.783-.57-.38-1.81.588-1.81h4.18a1 1 0 00.95-.69L9.049 2.927z" />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <h3 className="text-lg font-bold text-white">Hola, soy Calculon 🤖</h3>
+                                            <p className="text-sm text-gray-300">Te guiaré paso a paso. Empecemos por la tasa de llegada (λ).</p>
+                                        </div>
+                                    </div>
+                                    <div className="mt-4 flex justify-end gap-2">
+                                        <button onClick={() => setShowIntro(false)} className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded">Cerrar</button>
+                                        <button onClick={() => openWizard()} className="bg-emerald-600 hover:bg-emerald-700 text-white py-2 px-4 rounded">Empezar</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Modal wizard para entrada secuencial (λ -> μ -> s -> K) */}
+                        {showStepModal && (
+                            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+                                <div className="absolute inset-0 bg-black/60" onClick={handleModalClose}></div>
+                                <div className="relative bg-gray-800 rounded-xl p-6 max-w-md w-full shadow-2xl border border-gray-700 animate-scale-in">
+                                    <h3 className="text-lg font-bold text-white mb-2">Paso {modalStep} de 4</h3>
+                                    {modalStep === 1 && (
+                                        <div>
+                                            <div className="bg-gray-700/40 border border-gray-600 p-3 rounded-md mb-2 flex items-start gap-3">
+                                                <div className="flex-shrink-0 mt-0.5"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-300" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-11a1 1 0 10-2 0v3a1 1 0 00.293.707l2 2a1 1 0 101.414-1.414L11 9.586V7z" clipRule="evenodd" /></svg></div>
+                                                <div><p className="text-xs text-gray-200 font-medium">Explicación</p><p className="text-sm text-gray-300">λ es la tasa promedio de llegadas por unidad de tiempo (clientes/unidad). Debe ser un número positivo.</p></div>
+                                            </div>
+                                            <input ref={lambdaRef} name="lambda" type="number" step="any" placeholder="Ej: 10" value={inputs.lambda} onChange={handleInputChange} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleModalNext(); } }} className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white" />
+                                        </div>
+                                    )}
+                                    {modalStep === 2 && (
+                                        <div>
+                                            <div className="bg-gray-700/40 border border-gray-600 p-3 rounded-md mb-2 flex items-start gap-3">
+                                                <div className="flex-shrink-0 mt-0.5"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-300" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.974a1 1 0 00.95.69h4.18c.969 0 1.371 1.24.588 1.81l-3.388 2.462a1 1 0 00-.364 1.118l1.287 3.974c.3.921-.755 1.688-1.54 1.118L10 15.347l-3.388 2.462c-.784.57-1.839-.197-1.54-1.118l1.287-3.974a1 1 0 00-.364-1.118L2.608 9.401c-.783-.57-.38-1.81.588-1.81h4.18a1 1 0 00.95-.69L9.049 2.927z"/></svg></div>
+                                                <div><p className="text-xs text-gray-200 font-medium">Explicación</p><p className="text-sm text-gray-300">μ es la tasa de servicio por servidor. Debe ser positiva.</p></div>
+                                            </div>
+                                            <input ref={muRef} name="mu" type="number" step="any" placeholder="Ej: 6" value={inputs.mu} onChange={handleInputChange} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleModalNext(); } }} className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white" />
+                                        </div>
+                                    )}
+                                    {modalStep === 3 && (
+                                        <div>
+                                            <div className="bg-gray-700/40 border border-gray-600 p-3 rounded-md mb-2 flex items-start gap-3">
+                                                <div className="flex-shrink-0 mt-0.5"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-300" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.974a1 1 0 00.95.69h4.18c.969 0 1.371 1.24.588 1.81l-3.388 2.462a1 1 0 00-.364 1.118l1.287 3.974c.3.921-.755 1.688-1.54 1.118L10 15.347l-3.388 2.462c-.784.57-1.839-.197-1.54-1.118l1.287-3.974a1 1 0 00-.364-1.118L2.608 9.401c-.783-.57-.38-1.81.588-1.81h4.18a1 1 0 00.95-.69L9.049 2.927z"/></svg></div>
+                                                <div><p className="text-xs text-gray-200 font-medium">Explicación</p><p className="text-sm text-gray-300">s es el número de servidores (entero positivo).</p></div>
+                                            </div>
+                                            <input ref={sRef} name="s" type="number" step="1" placeholder="Ej: 2" value={inputs.s} onChange={handleInputChange} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleModalNext(); } }} className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white" />
+                                        </div>
+                                    )}
+                                    {modalStep === 4 && (
+                                        <div>
+                                            <div className="bg-gray-700/40 border border-gray-600 p-3 rounded-md mb-2 flex items-start gap-3">
+                                                <div className="flex-shrink-0 mt-0.5"><svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-emerald-300" viewBox="0 0 20 20" fill="currentColor"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.286 3.974a1 1 0 00.95.69h4.18c.969 0 1.371 1.24.588 1.81l-3.388 2.462a1 1 0 00-.364 1.118l1.287 3.974c.3.921-.755 1.688-1.54 1.118L10 15.347l-3.388 2.462c-.784.57-1.839-.197-1.54-1.118l1.287-3.974a1 1 0 00-.364-1.118L2.608 9.401c-.783-.57-.38-1.81.588-1.81h4.18a1 1 0 00.95-.69L9.049 2.927z"/></svg></div>
+                                                <div><p className="text-xs text-gray-200 font-medium">Explicación</p><p className="text-sm text-gray-300">K es la capacidad total del sistema (s + cola), entero positivo.</p></div>
+                                            </div>
+                                            <input ref={kRef} name="k" type="number" step="1" placeholder="Ej: 5" value={inputs.k} onChange={handleInputChange} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleModalNext(); } }} className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white" />
+                                        </div>
+                                    )}
+
+                                    <div className="mt-4 flex justify-end gap-2">
+                                        <button onClick={handleModalClose} className="bg-gray-600 hover:bg-gray-700 text-white py-2 px-4 rounded">Cancelar</button>
+                                        <button onClick={handleModalNext} className={`py-2 px-4 rounded bg-emerald-600 hover:bg-emerald-700 text-white`}>{modalStep < 4 ? 'Siguiente' : 'Calcular'}</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
                         <h1 className="text-2xl font-extrabold mb-2 text-center text-white">
                             M/M/s/K
                         </h1>
@@ -169,20 +308,20 @@ function Server_con_cola_varios() {
                             <div className="space-y-4 mb-6">
                                 <div>
                                     <label htmlFor="lambda" className="block text-sm font-medium text-gray-300 mb-1">Tasa de llegada (λ)</label>
-                                    <input type="number" step="any" name="lambda" id="lambda" value={inputs.lambda} onChange={handleInputChange} placeholder="Ej: 10" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                                    <input ref={lambdaRef} type="number" step="any" name="lambda" id="lambda" value={inputs.lambda} onChange={handleInputChange} placeholder="Ej: 10" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); muRef.current?.focus(); } }} />
                                 </div>
                                 <div>
                                     <label htmlFor="mu" className="block text-sm font-medium text-gray-300 mb-1">Tasa de servicio (μ) <span className='text-xs text-gray-400'>(por servidor)</span></label>
-                                    <input type="number" step="any" name="mu" id="mu" value={inputs.mu} onChange={handleInputChange} placeholder="Ej: 6" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                                    <input ref={muRef} type="number" step="any" name="mu" id="mu" value={inputs.mu} onChange={handleInputChange} placeholder="Ej: 6" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); sRef.current?.focus(); } }} />
                                 </div>
                                 <div>
                                     <label htmlFor="s" className="block text-sm font-medium text-gray-300 mb-1">Número de servidores (s)</label>
-                                    <input type="number" step="1" name="s" id="s" value={inputs.s} onChange={handleInputChange} placeholder="Ej: 2" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                                    <input ref={sRef} type="number" step="1" name="s" id="s" value={inputs.s} onChange={handleInputChange} placeholder="Ej: 2" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); kRef.current?.focus(); } }} />
                                 </div>
                                 <div>
                                     {/* Etiqueta corregida para mayor claridad */}
                                     <label htmlFor="k" className="block text-sm font-medium text-gray-300 mb-1">Capacidad Total del Sistema (K)</label>
-                                    <input type="number" step="1" name="k" id="k" value={inputs.k} onChange={handleInputChange} placeholder="Ej: 5 (s + cola)" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition"/>
+                                    <input ref={kRef} type="number" step="1" name="k" id="k" value={inputs.k} onChange={handleInputChange} placeholder="Ej: 5 (s + cola)" className="w-full bg-gray-700 border border-gray-600 rounded-md p-2 text-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 transition" onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleCalculate(e); } }} />
                                 </div>
                             </div>
                             <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300">
@@ -322,6 +461,55 @@ function Server_con_cola_varios() {
                     >
                         Imprimir Resultados 🖨️
                     </button>
+                )}
+            </div>
+            {/* PANEL: Guía de interpretación (oculta en impresión) */}
+            <div className="mt-6 print:hidden max-w-4xl mx-auto">
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-lg font-bold text-emerald-300">Guía de interpretación</h3>
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => { setShowGuide(!showGuide); if (!showGuide) setGuideStep(0); }} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">{showGuide ? 'Cerrar guía' : 'Abrir guía'}</button>
+                        <button onClick={() => openWizard()} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded">Abrir asistente</button>
+                    </div>
+                </div>
+
+                {showGuide && results && (
+                    <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="md:col-span-2">
+                                <h4 className="text-white font-semibold">{guideSteps[guideStep].title}</h4>
+                                <p className="text-gray-300 text-sm mt-2">{guideSteps[guideStep].desc}</p>
+                                <p className="text-gray-400 text-sm mt-2">Recomendación: {guideSteps[guideStep].recommendation}</p>
+                                <div className="flex gap-2 mt-4">
+                                    <button onClick={() => setGuideStep(Math.max(0, guideStep - 1))} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">Anterior</button>
+                                    <button onClick={() => setGuideStep(Math.min(guideSteps.length - 1, guideStep + 1))} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded">Siguiente</button>
+                                </div>
+                            </div>
+
+                            <div>
+                                <p className="text-xs text-gray-400">Métrica actual</p>
+                                <div className="mt-3 grid grid-cols-1 gap-2">
+                                    {['rho','Ls','Lq','Wq','Ws','Pk'].map((key, idx) => {
+                                        const labelMap = { rho: 'Utilización (ρ)', Ls: 'Clientes en Sistema (Ls)', Lq: 'Clientes en Cola (Lq)', Wq: 'Tiempo en Cola (Wq)', Ws: 'Tiempo en Sistema (Ws)', Pk: 'Prob. Rechazo (Pk)'};
+                                        const valueMap = { rho: results.rho.toFixed(4), Ls: results.Ls.toFixed(4), Lq: results.Lq.toFixed(4), Wq: results.Wq.toFixed(4), Ws: results.Ws.toFixed(4), Pk: results.Pk.toFixed(4) };
+                                        const isActive = guideSteps[guideStep].key === key;
+                                        return (
+                                            <div key={key} role="button" tabIndex={0}
+                                                onClick={() => { setGuideStep(idx); if (!showGuide) setShowGuide(true); }}
+                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setGuideStep(idx); if (!showGuide) setShowGuide(true); } }}
+                                                className="cursor-pointer"
+                                            >
+                                                <div className={`p-3 rounded-lg text-center ${isActive ? 'bg-emerald-700/30 ring-2 ring-emerald-400' : 'bg-gray-800/70'}`}>
+                                                    <p className={`text-xs ${isActive ? 'text-white' : 'text-gray-400'} font-medium`}>{labelMap[key]}</p>
+                                                    <p className={`text-xl font-bold ${isActive ? 'text-white' : 'text-emerald-400'} mt-1`}>{valueMap[key]}</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 )}
             </div>
         </div>
