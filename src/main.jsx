@@ -15,6 +15,8 @@ import Server_con_cola_varios from './views/Server_con_cola_varios.jsx';
 import Server_sin_cola_varios from './views/Sever_sin_cola_varios.jsx';
 import Server_con_cola_varios_av from './views/Server_con_cola_varios_av.jsx';
 import Server_sin_cola_varios_av from './views/Sever_sin_cola_varios_av.jsx';
+import MonteCarlo from './views/MonteCarlo/MonteCarlo.jsx';
+import MonteCarlo_Av from './views/MonteCarlo/MonteCarlo_Av.jsx';
 
 
 
@@ -48,6 +50,11 @@ const router = createBrowserRouter([
             path: "serverconcola", 
             element: <Server_con_cola />,
           }
+          ,
+          {
+            path: "montecarlo", 
+            element: <MonteCarlo />,
+          }
         ],
       },
       {
@@ -69,6 +76,11 @@ const router = createBrowserRouter([
           {
             path: "serverconcola", 
             element: <Server_con_cola_av />,
+          }
+          ,
+          {
+            path: "montecarlo", 
+            element: <MonteCarlo_Av />,
           }
         ],
       }
