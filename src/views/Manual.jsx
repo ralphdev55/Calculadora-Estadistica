@@ -16,7 +16,8 @@ const calculators = [
     name: "Líneas de espera de varios servidores con límite de cola",
     path: "serverconcolavarios",
     description: "Modela y calcula métricas (M/M/s/K) para un sistema con varios servidores donde la capacidad de la cola es finita y limitada."
-    } 
+    }, 
+    { name: 'Simulación Monte Carlo', path: 'montecarlo', description: 'Se agrupan una serie de procedimientos que analizan distruciones de variables aleatorias usando simulación de numeros aleatorios' } 
 ];
 
 function Manual() {
