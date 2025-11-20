@@ -1,6 +1,5 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { useState } from 'react';
 
 // --- FUNCIÓN AUXILIAR ---
 // Se necesita para las fórmulas de M/M/s
@@ -41,6 +40,18 @@ function Server_sin_cola_varios() {
     const muRef = useRef(null);
     const sRef = useRef(null);
 
+    // Refs para las tarjetas métricas y la tabla (para el overlay/guía)
+    const rhoMetricRef = useRef(null);
+    const LqMetricRef = useRef(null);
+    const LsMetricRef = useRef(null);
+    const WqMetricRef = useRef(null);
+    const WsMetricRef = useRef(null);
+    const P0MetricRef = useRef(null);
+    const tableRef = useRef(null);
+
+    const [highlightRect, setHighlightRect] = useState(null);
+    const [overlayVisible, setOverlayVisible] = useState(false);
+
     const [showStepModal, setShowStepModal] = useState(false);
     const [modalStep, setModalStep] = useState(1);
 
@@ -53,7 +64,8 @@ function Server_sin_cola_varios() {
         { key: 'Lq', title: 'Clientes en Cola (Lq)', desc: 'Número promedio de clientes esperando en la cola.', recommendation: 'Incrementar servidores (s) o servicio (μ).' },
         { key: 'Wq', title: 'Tiempo en Cola (Wq)', desc: 'Tiempo medio de espera en cola.', recommendation: 'Si Wq es alto, aumenta s o μ.' },
         { key: 'Ws', title: 'Tiempo en Sistema (Ws)', desc: 'Tiempo medio total en el sistema.', recommendation: 'Mejora la capacidad de servicio para reducir Ws.' },
-        { key: 'P0', title: 'Prob. sistema vacío (P0)', desc: 'Probabilidad de que no haya clientes en el sistema.', recommendation: 'P0 bajo indica alta ocupación.' }
+        { key: 'P0', title: 'Prob. sistema vacío (P0)', desc: 'Probabilidad de que no haya clientes en el sistema.', recommendation: 'P0 bajo indica alta ocupación.' },
+        { key: 'tabla', title: 'Tabla de Interpretación', desc: 'Distribución de probabilidad Pn y su Fn acumulada. Cada fila muestra la probabilidad de tener n clientes en el sistema.', recommendation: 'Usa la tabla para ver la masa de probabilidad en rangos concretos.' }
     ];
 
     // Modal wizard handlers (λ -> μ -> s)
@@ -89,6 +101,83 @@ function Server_sin_cola_varios() {
         const t = setTimeout(() => setShowCongrats(false), 3000);
         return () => clearTimeout(t);
     }, [showCongrats]);
+
+    // Cuando la guía está activa y cambia el paso, ubicamos el rectángulo del elemento objetivo
+    useEffect(() => {
+        if (!showGuide || !results) {
+            setOverlayVisible(false);
+            setHighlightRect(null);
+            return;
+        }
+
+        const key = guideSteps[guideStep]?.key;
+        const refMap = { rho: rhoMetricRef, Lq: LqMetricRef, Ls: LsMetricRef, Wq: WqMetricRef, Ws: WsMetricRef, P0: P0MetricRef, tabla: tableRef };
+        const targetRef = refMap[key];
+        const el = targetRef?.current;
+        if (!el) {
+            setOverlayVisible(false);
+            setHighlightRect(null);
+            return;
+        }
+
+        const rect = el.getBoundingClientRect();
+        setHighlightRect(rect);
+        setOverlayVisible(true);
+        // Scroll para centrar la métrica destacada
+        try { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) {}
+    }, [showGuide, guideStep, results]);
+
+    // Permitir avanzar con Enter cuando el overlay/spotlight está visible
+    useEffect(() => {
+        if (!overlayVisible) return;
+        const onKeyDown = (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (guideStep < guideSteps.length - 1) {
+                    setGuideStep((g) => Math.min(g + 1, guideSteps.length - 1));
+                } else {
+                    // Si es el último paso, cerrar la guía y el overlay
+                    setShowGuide(false);
+                    setOverlayVisible(false);
+                    setHighlightRect(null);
+                }
+            }
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [overlayVisible, guideStep, guideSteps.length]);
+
+    // Mantener el rectángulo de resaltado sincronizado mientras el usuario scrollea
+    useEffect(() => {
+        if (!overlayVisible) return;
+
+        let rafId = null;
+        const updateRect = () => {
+            const key = guideSteps[guideStep]?.key;
+            const refMap = { rho: rhoMetricRef, Lq: LqMetricRef, Ls: LsMetricRef, Wq: WqMetricRef, Ws: WsMetricRef, P0: P0MetricRef, tabla: tableRef };
+            const el = refMap[key]?.current;
+            if (!el) return;
+            const rect = el.getBoundingClientRect();
+            setHighlightRect(rect);
+        };
+
+        const onScroll = () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(updateRect);
+        };
+
+        // initial update
+        updateRect();
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', onScroll);
+
+        return () => {
+            if (rafId) cancelAnimationFrame(rafId);
+            window.removeEventListener('scroll', onScroll);
+            window.removeEventListener('resize', onScroll);
+        };
+    }, [overlayVisible, guideStep, guideSteps, results]);
 
     // --- MANEJADORES DE EVENTOS ---
 
@@ -187,12 +276,15 @@ function Server_sin_cola_varios() {
             rho, Ls, Lq, Ws, Wq, P0, 
             probabilityTable
         });
+        // Después del cálculo, abrimos automáticamente la guía y empezamos desde la primera métrica
+        setShowGuide(true);
+        setGuideStep(0);
     };
     
     // --- SUBCOMPONENTES DE RENDERIZADO ---
 
-    const MetricCard = ({ label, value }) => (
-        <div className="bg-gray-800/70 p-3 rounded-lg text-center print:bg-gray-200 print:text-black print:border print:border-gray-400">
+    const MetricCard = ({ label, value, innerRef }) => (
+        <div ref={innerRef} className="bg-gray-800/70 p-3 rounded-lg text-center print:bg-gray-200 print:text-black print:border print:border-gray-400">
             <p className="text-xs text-gray-400 print:text-gray-600 font-medium">{label}</p>
             <p className="text-xl font-bold text-emerald-400 print:text-emerald-700 mt-1">{value}</p>
         </div>
@@ -295,6 +387,11 @@ function Server_sin_cola_varios() {
                             <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg transition-colors duration-300 mt-2">
                                 Calcular
                             </button>
+                            {/* Botón para abrir el asistente (debajo de Calcular) */}
+                            <button type="button" onClick={openWizard} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-medium py-2 px-4 rounded-lg mt-3 transition-colors duration-200 h-9">
+                                Abrir asistente
+                            </button>
+
                             {error && <p className="text-red-400 text-center mt-4 text-sm">{error}</p>}
                         </form>
                     </div>
@@ -360,19 +457,19 @@ function Server_sin_cola_varios() {
                                 <h2 className="text-xl font-bold mb-4 text-center text-emerald-400 print:text-xl print:text-black">Métricas de Rendimiento</h2>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     {/* ρ es la utilización del servidor, no del sistema total */}
-                                    <MetricCard label="Utilización (ρ)" value={results.rho.toFixed(4)} /> 
-                                    <MetricCard label="Clientes en Cola (Lq)" value={results.Lq.toFixed(4)} />
-                                    <MetricCard label="Clientes en Sistema (Ls)" value={results.Ls.toFixed(4)} />
-                                    <MetricCard label="Tiempo en Cola (Wq)" value={results.Wq.toFixed(4)} />
-                                    <MetricCard label="Tiempo en Sistema (Ws)" value={results.Ws.toFixed(4)} />
-                                    <MetricCard label="Prob. Sistema Vacío (P0)" value={results.P0.toFixed(4)} />
+                                    <MetricCard innerRef={rhoMetricRef} label="Utilización (ρ)" value={results.rho.toFixed(4)} /> 
+                                    <MetricCard innerRef={LqMetricRef} label="Clientes en Cola (Lq)" value={results.Lq.toFixed(4)} />
+                                    <MetricCard innerRef={LsMetricRef} label="Clientes en Sistema (Ls)" value={results.Ls.toFixed(4)} />
+                                    <MetricCard innerRef={WqMetricRef} label="Tiempo en Cola (Wq)" value={results.Wq.toFixed(4)} />
+                                    <MetricCard innerRef={WsMetricRef} label="Tiempo en Sistema (Ws)" value={results.Ws.toFixed(4)} />
+                                    <MetricCard innerRef={P0MetricRef} label="Prob. Sistema Vacío (P0)" value={results.P0.toFixed(4)} />
                                 </div>
                             </div>
 
                             <div className="bg-gray-800 p-6 rounded-xl shadow-2xl border border-gray-700 print:bg-white print:p-0 print:shadow-none print:border-none break-inside-avoid mt-8">
                                 <h2 className="text-xl font-bold mb-4 text-center text-emerald-400 print:text-xl print:text-black print:mt-8">Tabla de Distribución de Probabilidad</h2>
                                 <div className="overflow-x-auto">
-                                    <table className="w-full text-left print:border-collapse text-sm">
+                                    <table ref={tableRef} className="w-full text-left print:border-collapse text-sm">
                                         <thead className="bg-gray-700/50 print:bg-gray-300 print:text-black">
                                             <tr>
                                                 <th className="p-3 rounded-tl-lg print:border print:border-gray-500">Clientes (n)</th>
@@ -401,55 +498,47 @@ function Server_sin_cola_varios() {
                 </div>
             </div>
 
-            {/* PANEL: Guía de interpretación (oculta hasta que el usuario la abra) */}
-            <div className="mt-6 print:hidden max-w-4xl mx-auto">
-                <div className="flex items-center justify-between mb-3">
-                    <h3 className="text-lg font-bold text-emerald-300">Guía de interpretación</h3>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => { setShowGuide(!showGuide); if (!showGuide) setGuideStep(0); }} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">{showGuide ? 'Cerrar guía' : 'Abrir guía'}</button>
-                        <button onClick={() => openWizard()} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded">Abrir asistente</button>
-                    </div>
-                </div>
+            
+            {/* Overlay/Highlight: muestra un foco oscuro alrededor de la métrica activa y un tooltip explicativo */}
+            {overlayVisible && highlightRect && (
+                <div aria-hidden className="fixed inset-0 z-50 pointer-events-none">
+                    {/* El truco del box-shadow grande crea el oscurecimiento alrededor del rectángulo */}
+                    <div style={{
+                        position: 'fixed',
+                        top: highlightRect.top + 'px',
+                        left: highlightRect.left + 'px',
+                        width: highlightRect.width + 'px',
+                        height: highlightRect.height + 'px',
+                        borderRadius: 8,
+                        boxShadow: '0 0 0 9999px rgba(0,0,0,0.6)',
+                        border: '2px solid rgba(52, 211, 153, 0.9)',
+                        zIndex: 60,
+                        pointerEvents: 'auto'
+                    }} />
 
-                {showGuide && results && (
-                    <div className="bg-gray-900 p-4 rounded-lg border border-gray-700">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="md:col-span-2">
-                                <h4 className="text-white font-semibold">{guideSteps[guideStep].title}</h4>
-                                <p className="text-gray-300 text-sm mt-2">{guideSteps[guideStep].desc}</p>
-                                <p className="text-gray-400 text-sm mt-2">Recomendación: {guideSteps[guideStep].recommendation}</p>
-                                <div className="flex gap-2 mt-4">
-                                    <button onClick={() => setGuideStep(Math.max(0, guideStep - 1))} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">Anterior</button>
-                                    <button onClick={() => setGuideStep(Math.min(guideSteps.length - 1, guideStep + 1))} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded">Siguiente</button>
-                                </div>
-                            </div>
-
-                            <div>
-                                <p className="text-xs text-gray-400">Métrica actual</p>
-                                <div className="mt-3 grid grid-cols-1 gap-2">
-                                    {['rho','Ls','Lq','Wq','Ws','P0'].map((key, idx) => {
-                                        const labelMap = { rho: 'Utilización (ρ)', Ls: 'Clientes en Sistema (Ls)', Lq: 'Clientes en Cola (Lq)', Wq: 'Tiempo en Cola (Wq)', Ws: 'Tiempo en Sistema (Ws)', P0: 'Prob. Sistema Vacío (P0)' };
-                                        const valueMap = { rho: results.rho.toFixed(4), Ls: results.Ls.toFixed(4), Lq: results.Lq.toFixed(4), Wq: results.Wq.toFixed(4), Ws: results.Ws.toFixed(4), P0: results.P0.toFixed(4) };
-                                        const isActive = guideSteps[guideStep].key === key;
-                                        return (
-                                            <div key={key} role="button" tabIndex={0}
-                                                onClick={() => { setGuideStep(idx); if (!showGuide) setShowGuide(true); }}
-                                                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setGuideStep(idx); if (!showGuide) setShowGuide(true); } }}
-                                                className="cursor-pointer"
-                                            >
-                                                <div className={`p-3 rounded-lg text-center ${isActive ? 'bg-emerald-700/30 ring-2 ring-emerald-400' : 'bg-gray-800/70'}`}>
-                                                    <p className={`text-xs ${isActive ? 'text-white' : 'text-gray-400'} font-medium`}>{labelMap[key]}</p>
-                                                    <p className={`text-xl font-bold ${isActive ? 'text-white' : 'text-emerald-400'} mt-1`}>{valueMap[key]}</p>
-                                                </div>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
+                    {/* Tooltip / popup con explicación y controles */}
+                    <div style={{
+                        position: 'fixed',
+                        top: (guideSteps[guideStep]?.key === 'tabla'
+                            ? Math.max(12, highlightRect.top - 200)
+                            : (highlightRect.bottom + 12)
+                        ) + 'px',
+                        left: Math.max(12, highlightRect.left) + 'px',
+                        zIndex: 61,
+                        maxWidth: 'min(420px, calc(100% - 24px))'
+                    }}>
+                        <div className="bg-gray-800 p-4 rounded-lg border border-gray-700 shadow-lg pointer-events-auto">
+                            <h4 className="text-white font-semibold">{guideSteps[guideStep]?.title}</h4>
+                            <p className="text-sm text-gray-300 mt-2">{guideSteps[guideStep]?.desc}</p>
+                            <p className="text-xs text-gray-400 mt-2">Recomendación: {guideSteps[guideStep]?.recommendation}</p>
+                            <div className="mt-3 flex gap-2 justify-end">
+                                <button onClick={() => { setGuideStep(Math.max(0, guideStep - 1)); }} className="bg-gray-700 hover:bg-gray-600 text-white px-3 py-1 rounded">Anterior</button>
+                                <button onClick={() => { if (guideStep < guideSteps.length - 1) { setGuideStep(guideStep + 1); } else { setShowGuide(false); setOverlayVisible(false); setHighlightRect(null);} }} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded">{guideStep < guideSteps.length - 1 ? 'Siguiente' : 'Cerrar'}</button>
                             </div>
                         </div>
                     </div>
-                )}
-            </div>
+                </div>
+            )}
             {/* --- BOTONES INFERIORES --- */}
             <div className="flex justify-between items-center mt-8 print:hidden">
                 <Link 
